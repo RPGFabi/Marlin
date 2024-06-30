@@ -154,6 +154,9 @@
   #define E_STEPPERS      1
   #define E_MANUAL        1
 
+#elif HAS_RPGFABI_MFU
+  #define E_STEPPERS 1
+  #define E_MANUAL 1
 #endif
 
 // Default E steppers / manual motion is one per extruder
