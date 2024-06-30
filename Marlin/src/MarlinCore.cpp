@@ -266,7 +266,7 @@ PGMSTR(M112_KILL_STR, "M112 Shutdown");
 MarlinState marlin_state = MF_INITIALIZING;
 
 // For M109 and M190, this flag may be cleared (by M108) to exit the wait loop
-bool wait_for_heatup = true;
+bool wait_for_heatup = false;
 
 // For M0/M1, this flag may be cleared (by M108) to exit the wait-for-user loop
 #if HAS_RESUME_CONTINUE
@@ -308,23 +308,12 @@ bool wait_for_heatup = true;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnarrowing"
 
-#ifndef RUNTIME_ONLY_ANALOG_TO_DIGITAL
-  template <pin_t ...D>
-  constexpr pin_t OnlyPins<_SP_END, D...>::table[sizeof...(D)];
-#endif
-
 bool pin_is_protected(const pin_t pin) {
-  #ifdef RUNTIME_ONLY_ANALOG_TO_DIGITAL
-    static const pin_t sensitive_pins[] PROGMEM = { SENSITIVE_PINS };
-    const size_t pincount = COUNT(sensitive_pins);
-  #else
-    static constexpr size_t pincount = OnlyPins<SENSITIVE_PINS>::size;
-    static const pin_t (&sensitive_pins)[pincount] PROGMEM = OnlyPins<SENSITIVE_PINS>::table;
-  #endif
-  for (uint8_t i = 0; i < pincount; ++i) {
-    const pin_t * const pptr = &sensitive_pins[i];
-    if (pin == (sizeof(pin_t) == 2 ? (pin_t)pgm_read_word(pptr) : (pin_t)pgm_read_byte(pptr))) return true;
-  }
+  #define pgm_read_pin(P) (sizeof(pin_t) == 2 ? (pin_t)pgm_read_word(P) : (pin_t)pgm_read_byte(P))
+  for (uint8_t i = 0; i < COUNT(sensitive_dio); ++i)
+    if (pin == pgm_read_pin(&sensitive_dio[i])) return true;
+  for (uint8_t i = 0; i < COUNT(sensitive_aio); ++i)
+    if (pin == analogInputToDigitalPin(pgm_read_pin(&sensitive_dio[i]))) return true;
   return false;
 }
 
@@ -474,11 +463,16 @@ inline void manage_inactivity(const bool no_stepper_sleep=false) {
 
   #if HAS_KILL
 
-    // Check if the kill button was pressed and wait just in case it was an accidental
-    // key kill key press
+    // Check if the kill button was pressed and wait to ensure the signal is not noise
+    // typically caused by poor insulation and grounding on LCD cables.
+    // Lower numbers here will increase response time and therefore safety rating.
+    // It is recommended to set this as low as possibe without false triggers.
     // -------------------------------------------------------------------------------
+    #ifndef KILL_DELAY
+      #define KILL_DELAY 250
+    #endif
+
     static int killCount = 0;   // make the inactivity button a bit less responsive
-    const int KILL_DELAY = 750;
     if (kill_state())
       killCount++;
     else if (killCount > 0)
@@ -1325,17 +1319,22 @@ void setup() {
     #endif
   #endif
 
-  #if ALL(HAS_MEDIA, SDCARD_EEPROM_EMULATION)
+  #if HAS_MEDIA && ANY(SDCARD_EEPROM_EMULATION, POWER_LOSS_RECOVERY)
     SETUP_RUN(card.mount());          // Mount media with settings before first_load
   #endif
 
-  SETUP_RUN(settings.first_load());   // Load data from EEPROM if available (or use defaults)
-                                      // This also updates variables in the planner, elsewhere
+  // Prepare some LCDs to display early
+  #if HAS_EARLY_LCD_SETTINGS
+    SETUP_RUN(settings.load_lcd_state());
+  #endif
 
   #if ALL(HAS_WIRED_LCD, SHOW_BOOTSCREEN)
     SETUP_RUN(ui.show_bootscreen());
     const millis_t bootscreen_ms = millis();
   #endif
+
+  SETUP_RUN(settings.first_load());   // Load data from EEPROM if available (or use defaults)
+                                      // This also updates variables in the planner, elsewhere
 
   #if ENABLED(PROBE_TARE)
     SETUP_RUN(probe.tare_init());
