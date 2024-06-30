@@ -106,7 +106,7 @@
     #define HAS_EXTENDABLE_MMU 1
   #endif
   #if _MMU == _RPGFABI_MFU
-    #define HAS_MFU 1
+    #define HAS_RPGFABI_MFU  1
   #endif
 
   #undef _MMU
