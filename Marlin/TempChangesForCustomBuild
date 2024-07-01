@@ -1,0 +1,3 @@
+Removed #define SERIAL_CATCHALL from Marlin/src/inc/Conditionals_LCD.h
+
+Default_envs in platformio.ini

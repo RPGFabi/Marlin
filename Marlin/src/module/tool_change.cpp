@@ -80,6 +80,8 @@
   #include "../feature/mmu/mmu.h"
 #elif HAS_PRUSA_MMU2
   #include "../feature/mmu/mmu2.h"
+#elif HAS_RPGFABI_MFU
+  #include "../feature/mfu/mfu.h"
 #endif
 
 #if HAS_MARLINUI_MENU

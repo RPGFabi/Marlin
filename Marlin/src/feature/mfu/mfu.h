@@ -22,6 +22,10 @@
 #pragma once
 #include "../../MarlinCore.h"
 
+#if HAS_FILAMENT_SENSOR
+  #include "../runout.h"
+#endif
+
 #define MFU_RX_BUFFERSIZE 16
 #define MFU_TX_BUFFERSIZE 16
 #define MFU_NO_TOOL -1
@@ -40,16 +44,26 @@ inline void mfu_e_move(const float &dist, const feedRate_t fr_mm_s, const bool s
 
 class MFU{
   private:
+
+    static bool ready;
+
+
     static uint8_t cmd, cmd_arg, last_cmd, extruder;
+    static int8_t state;
+    static volatile bool finda_runout_valid;
+    static millis_t prev_request, prev_P0_request;
+
+
     static bool _enabled, toolLoaded, isReady;
     static char rx_buffer[MFU_RX_BUFFERSIZE], tx_buffer[MFU_TX_BUFFERSIZE];
     static void tx_str(FSTR_P fstr); 
-    static void tx_printf(FSTR_P format, int argument = -1);
+    static void tx_printf(FSTR_P format, int argument);
     static void tx_printf(FSTR_P format, int argument1, int argument2);
-    static void rx_str();
+    static bool rx_str(FSTR_P fstr);
     static void clear_rx_buffer();
     static bool get_response();
-    static bool manage_response(const bool move_axes, const bool turn_off_nozzle);
+
+    static void manage_response(const bool move_axes, const bool turn_off_nozzle);
   
   public:
     MFU();
@@ -62,4 +76,8 @@ class MFU{
     static void tool_change(const char *special);
     static bool unload();
     static void setCommand(const uint8_t newCommand);
+
+    static void set_runout_valid(const bool valid);
 };
+
+extern MFU mfu;

@@ -41,6 +41,7 @@
   || X_ENA_PIN  == N || Y_ENA_PIN  == N || Z_ENA_PIN   == N \
   || BTN_EN1    == N || BTN_EN2    == N || LCD_PINS_EN == N \
 )
+
 #if SERIAL_IN_USE(0)
   // D0-D1. No known conflicts.
 #endif

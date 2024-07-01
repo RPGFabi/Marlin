@@ -35,6 +35,10 @@
   #include "../../feature/mmu/mmu2.h"
 #endif
 
+#if HAS_RPGFABI_MFU
+  #include "../../feature/mfu/mfu.h"
+#endif
+
 #define DEBUG_OUT ENABLED(DEBUG_LEVELING_FEATURE)
 #include "../../core/debug_out.h"
 

@@ -107,6 +107,7 @@
   #endif
   #if _MMU == _RPGFABI_MFU
     #define HAS_RPGFABI_MFU  1
+    #define HAS_EXTENDABLE_MMU 1
   #endif
 
   #undef _MMU
@@ -1068,7 +1069,7 @@
 
 // E3V2 extras
 #if HAS_DWIN_E3V2 || IS_DWIN_MARLINUI
-  #define SERIAL_CATCHALL 0
+  //#define SERIAL_CATCHALL 0
   #define HAS_LCD_BRIGHTNESS 1
   #define LCD_BRIGHTNESS_MAX 250
 #endif

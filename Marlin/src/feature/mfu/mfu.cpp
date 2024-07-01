@@ -4,17 +4,27 @@
 #include "../../feature/mfu/mfu.h"
 #include "../../gcode/gcode.h"
 #include "../../libs/buzzer.h"
+#include "../../libs/nozzle.h"
 #include "../../module/temperature.h"
+#include "../../module/stepper.h"
 #include "../../MarlinCore.h"
+#include "../../lcd/marlinui.h"
 
 MFU mfu;
 #define MFU_BAUDRATE 115200
 
+bool MFU::_enabled, MFU::ready;
+uint8_t MFU::cmd, MFU::extruder;
+int8_t MFU::state = 0;
+volatile bool MFU::finda_runout_valid;
+bool MFU::isReady;
+char MFU::rx_buffer[MFU_RX_BUFFERSIZE], MFU::tx_buffer[MFU_TX_BUFFERSIZE];
 
+#define MFU_DEBUG
 #define DEBUG_OUT ENABLED(MFU_DEBUG)
 #include "../../core/debug_out.h"
 
-inline void mfu_e_move(const float &dist, const feedRate_t fr_mm_s, const bool sync =true){
+inline void mfu_e_move(const float &dist, const feedRate_t fr_mm_s, const bool sync){
   current_position.e += dist /planner.e_factor[active_extruder];
   line_to_current_position(fr_mm_s);
   if(sync) planner.synchronize();
@@ -24,7 +34,7 @@ MFU::MFU(){
   rx_buffer[0] = '\0';
 };
 
-MFU::init(){
+void MFU::init(){
   MFU_SERIAL.begin(MFU_BAUDRATE);
   extruder = MFU_NO_TOOL;
 
@@ -36,22 +46,27 @@ MFU::init(){
 /*
   Handle tool Change
 */
-MFU:: tool_change(const uint8_t index){
+void MFU:: tool_change(const uint8_t index){
   if(_enabled) return;
+  DEBUG_ECHOLNPGM("Toolchange\n");
 
   if(index != extruder){
+    DEBUG_ECHOLNPGM("not the same Extruder\n");
     set_runout_valid(false);  // Disable Runout Sensor
 
     // Unload from Extruder
     mfu_e_move(-MFU_UNLOAD_GEARS_MM, MMM_TO_MMS(MFU_UNLOAD_FEEDRATE));
+    DEBUG_ECHOLNPGM("Unloading Extruder\n");
 
     // Handle Change
     stepper.disable_extruder();
+    DEBUG_ECHOLNPGM("changing tool\n");
     setCommand(MFU_CMD_FIRSTTOOL + index);
     // Wait for response
     manage_response(true, true);
 
     // Load Into Extruder
+    DEBUG_ECHOLNPGM("Loading Extruder\n");
     extruder = index;
     active_extruder = 0;
     stepper.enable_extruder();
@@ -62,6 +77,8 @@ MFU:: tool_change(const uint8_t index){
     manage_response(true, true);
 
     set_runout_valid(true); // Enable Runout Sensor
+    
+    DEBUG_ECHOLNPGM("changed Tool\n");
   }
 }
 
@@ -73,8 +90,7 @@ MFU:: tool_change(const uint8_t index){
 * Tc Load to nozzle after filament was prepared by Tx and extruder nozzle is already heated.
 */
 void MFU::tool_change(const char *special) {
-  if(!_enabled) return false;
-
+  if(!_enabled) return;
 }
 
 /**
@@ -118,6 +134,7 @@ void MFU::manage_response(const bool move_axes, const bool turn_off_nozzle) {
         mfu_print_saved = true;
 
         SERIAL_ECHOLNPGM("MFU not responding");
+        DEBUG_ECHOLNPGM("MFU not responding\n");
 
         resume_hotend_temp = thermalManager.degTargetHotend(active_extruder);
         resume_position = current_position;
@@ -131,6 +148,7 @@ void MFU::manage_response(const bool move_axes, const bool turn_off_nozzle) {
     }
     else if (mfu_print_saved) {
       SERIAL_ECHOLNPGM("\nMFU starts responding");
+      DEBUG_ECHOLNPGM("MFU starts responding\n");
 
       if (turn_off_nozzle && resume_hotend_temp) {
         thermalManager.setTargetHotend(resume_hotend_temp, active_extruder);
@@ -160,9 +178,9 @@ void MFU::manage_response(const bool move_axes, const bool turn_off_nozzle) {
 
 
 
-MFU::loop(){
+void MFU::loop(){
   switch(state){
-    case 0: break;
+    //case 0: break;
 
     case -1: // NOT HOMED
       #if defined MFU_USE_FILAMENTSENSOR
@@ -179,6 +197,7 @@ MFU::loop(){
         // Home with retract
         MFU_SEND("H1");
       #endif 
+
       state = -2; // set to Homing
       break;
     
@@ -195,12 +214,14 @@ MFU::loop(){
           // Toolchange
           const int toolIndex = cmd - MFU_CMD_FIRSTTOOL;
 
-          MFU_SEND(F("T%d"), toolIndex);
+          //MFU_SEND(F("T%d"), toolIndex);
+          char tmpstr[5];
+          sprintf(tmpstr, "T%d\n", toolIndex );
+          tx_str(F(tmpstr)); 
           state = 1;
         }
-        else if(cmd == MFU_CMD_UNLOADTTOOL){
+        else if(cmd == MFU_CMD_UNLOADTOOL){
           // Unload current tool
-          
           MFU_SEND("U");
           state = 2;
         }
@@ -216,13 +237,12 @@ MFU::loop(){
       if(MFU_RECV("ok")){
         // Preloaded 
         // Enable Extruder for Primingdistance
-
-        set_runout_valid();
+        set_runout_valid(true);
       }
       break;
     
     case 2: // Wait for 'ok'
-      last_cmd = MFU_NOCMD;
+      last_cmd = MFU_CMD_NOCMD;
       state = 0;
       break;
   }
@@ -251,12 +271,12 @@ void MFU::clear_rx_buffer() {
   rx_buffer[0] = '\0';
 }
 
-void MFU::rx_str(){
+bool MFU::rx_str(FSTR_P fstr){
   PGM_P pstr = FTOP(fstr);
 
   uint8_t i = strlen(rx_buffer);
 
-  while (MFU_Serial.available()) {
+  while (MFU_SERIAL.available()) {
     rx_buffer[i++] = MFU_SERIAL.read();
 
     if (i == sizeof(rx_buffer) - 1) {
@@ -282,7 +302,7 @@ void MFU::rx_str(){
   return true;
 }
 
-static void MFU::setCommand(const uint newCommand){
+void MFU::setCommand(const uint8_t newCommand){
   cmd = newCommand;
   isReady = false;
 }
@@ -316,4 +336,11 @@ void MFU::tx_printf(FSTR_P format, int argument1, int argument2) {
   for (uint8_t i = 0; i < len; ++i) MFU_SERIAL.write(tx_buffer[i]);
   prev_request = millis();
 }
+
+void MFU::set_runout_valid(const bool valid){
+      finda_runout_valid = valid;
+      #if HAS_FILAMENT_SENSOR
+        if(valid) runout.reset();
+      #endif
+    }
 #endif

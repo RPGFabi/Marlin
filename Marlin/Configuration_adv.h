@@ -740,7 +740,7 @@
  * The multiplexer is automatically switched at tool-change.
  * Set FANMUX[012]_PINs below for up to 2, 4, or 8 multiplexed fans.
  */
-#define FANMUX0_PIN FAN_PIN
+#define FANMUX0_PIN FAN0_PIN
 #define FANMUX1_PIN -1
 #define FANMUX2_PIN -1
 

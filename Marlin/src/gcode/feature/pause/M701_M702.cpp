@@ -39,6 +39,10 @@
   #include "../../../feature/mmu/mmu2.h"
 #endif
 
+#if HAS_RPGFABI_MFU
+  #include "../../feature/mfu/mfu.h"
+#endif
+
 #if ENABLED(MIXING_EXTRUDER)
   #include "../../../feature/mixing.h"
 #endif

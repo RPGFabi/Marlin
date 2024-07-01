@@ -627,7 +627,7 @@ MSerialT1 customizedSerial1(MSerialT1::HasEmergencyParser);
   }
 
   template class MarlinSerial< MFUSerialCfg<MFU_SERIAL_PORT> >;
-  MSerialFU mmuSerial(MSerialFU::HasEmergencyParser);
+  MSerialMFU mfuSerial(MSerialMFU::HasEmergencyParser);
 
 #endif // MFU_SERIAL_PORT
 
