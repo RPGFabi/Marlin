@@ -40,7 +40,7 @@
 #endif
 
 #if HAS_RPGFABI_MFU
-  #include "../../feature/mfu/mfu.h"
+  #include "../../../feature/mfu/mfu.h"
 #endif
 
 #if ENABLED(MIXING_EXTRUDER)

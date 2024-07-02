@@ -2919,6 +2919,19 @@ static_assert(NUM_SERVOS <= NUM_SERVO_PLUGS, "NUM_SERVOS (or some servo index) i
 #endif
 
 /**
+ * MFU require a dedicated serial port
+ */
+#ifdef MFU_SERIAL_PORT
+  #if MFU_SERIAL_PORT == SERIAL_PORT
+    #error "MFU_SERIAL_PORT cannot be the same as SERIAL_PORT."
+  #elif defined(SERIAL_PORT_2) && MFU_SERIAL_PORT == SERIAL_PORT_2
+    #error "MFU_SERIAL_PORT cannot be the same as SERIAL_PORT_2."
+  #elif defined(LCD_SERIAL_PORT) && MFU_SERIAL_PORT == LCD_SERIAL_PORT
+    #error "MFU_SERIAL_PORT cannot be the same as LCD_SERIAL_PORT."
+  #endif
+#endif
+
+/**
  * Serial displays require a dedicated serial port
  */
 #ifdef LCD_SERIAL_PORT

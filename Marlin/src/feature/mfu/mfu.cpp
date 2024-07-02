@@ -16,8 +16,10 @@ MFU mfu;
 bool MFU::_enabled, MFU::ready;
 uint8_t MFU::cmd, MFU::extruder;
 int8_t MFU::state = 0;
+uint8_t MFU::last_cmd;
 volatile bool MFU::finda_runout_valid;
 bool MFU::isReady;
+millis_t MFU::prev_request;
 char MFU::rx_buffer[MFU_RX_BUFFERSIZE], MFU::tx_buffer[MFU_TX_BUFFERSIZE];
 
 #define MFU_DEBUG
@@ -39,7 +41,7 @@ void MFU::init(){
   extruder = MFU_NO_TOOL;
 
   rx_buffer[0] = '\0';
-  state = -1;   
+  state = -1;
   _enabled = false;
 }
 
@@ -47,8 +49,11 @@ void MFU::init(){
   Handle tool Change
 */
 void MFU:: tool_change(const uint8_t index){
-  if(_enabled) return;
-  DEBUG_ECHOLNPGM("Toolchange\n");
+  if(_enabled){
+    DEBUG_ECHOLNPGM("Aborted Toolchange: MFU NOT HOMED\n");
+    return;
+  }
+  DEBUG_ECHOLNPGM("Toolchange to: ", uint16_t(index), "\n");
 
   if(index != extruder){
     DEBUG_ECHOLNPGM("not the same Extruder\n");
@@ -77,7 +82,7 @@ void MFU:: tool_change(const uint8_t index){
     manage_response(true, true);
 
     set_runout_valid(true); // Enable Runout Sensor
-    
+
     DEBUG_ECHOLNPGM("changed Tool\n");
   }
 }
@@ -90,9 +95,12 @@ void MFU:: tool_change(const uint8_t index){
 * Tc Load to nozzle after filament was prepared by Tx and extruder nozzle is already heated.
 */
 void MFU::tool_change(const char *special) {
-  if(!_enabled) return;
-  
+  if(!_enabled){
+    DEBUG_ECHOLNPGM("Aborted Toolchange: MFU NOT HOMED\n");
+    return;
+  }
 
+    DEBUG_ECHOLNPGM("Special Toolchange: Not Implemented\n");
   /*
   T? : (Requires MMU2_MENUS) Wait for target temperature, then load the filament all the way to the nozzle. G-code to extrude more is not needed.
   Tx : (Requires MMU2_MENUS) Load the filament up to the direct-drive extruder gears. No heating is required.
@@ -186,32 +194,39 @@ void MFU::manage_response(const bool move_axes, const bool turn_off_nozzle) {
 
 
 void MFU::loop(){
+
+  DEBUG_ECHOLNPGM("State => ", uint16_t(state));
   switch(state){
     //case 0: break;
 
     case -1: // NOT HOMED
+      if (rx_start()) {
+        DEBUG_ECHOLNPGM("MFU => 'start'");
+      }
+
       #if defined MFU_USE_FILAMENTSENSOR
         if(runout.filament_ran_out){
           // Filament not loaded => Home without Retract
-          while (!thermalManager.wait_for_hotend(active_extruder,false)) safe_delay(100); // Wait for Headup
           MFU_SEND("H0");
           DEBUG_ECHOLNPGM("H0 sent\n");
         }
         else{
           // Filament in Sensor => Home with Retract
-          MFU_SEND("H0");
-          DEBUG_ECHOLNPGM("H0 sent\n");
+          while (!thermalManager.wait_for_hotend(active_extruder,false)) safe_delay(100); // Wait for Headup
+          MFU_SEND("H1");
+          DEBUG_ECHOLNPGM("H1 sent\n");
         }
       #else
         // Home with retract
         MFU_SEND("H1");
           DEBUG_ECHOLNPGM("H1 sent\n");
-      #endif 
+      #endif
 
       state = -2; // set to Homing
       break;
-    
+
     case -2:  // Is Homing, wait for "ok"
+    DEBUG_ECHOLNPGM("Waiting for an ok from the MFU");
       if(MFU_RECV("ok")){
         DEBUG_ECHOLNPGM("Received OK after Waiting for Homing\n");
         _enabled = true;
@@ -228,8 +243,10 @@ void MFU::loop(){
           //MFU_SEND(F("T%d"), toolIndex);
           char tmpstr[5];
           sprintf(tmpstr, "T%d\n", toolIndex );
-          tx_str(F(tmpstr)); 
+          tx_str(F(tmpstr));
           state = 1;
+
+          DEBUG_ECHOLNPGM("New Tool => ", uint16_t(toolIndex));
         }
         else if(cmd == MFU_CMD_UNLOADTOOL){
           // Unload current tool
@@ -238,23 +255,26 @@ void MFU::loop(){
           state = 2;
         }
         else if(cmd == MFU_CMD_LOADTOOL){
-          // Load the Filament 
+          // Load the Filament
           MFU_SEND("L");
           DEBUG_ECHOLNPGM("L sent\n");
           state = 2;
         }
       }
+      else{
+        DEBUG_ECHOLNPGM("Currently no Command to handle!");
+      }
       break;
-    
+
     case 1: // Waiting for Toolchange
       if(MFU_RECV("ok")){
-        // Preloaded 
+        // Preloaded
         // Enable Extruder for Primingdistance
         DEBUG_ECHOLNPGM("Received OK after Waiting for toolchange\n");
         set_runout_valid(true);
       }
       break;
-    
+
     case 2: // Wait for 'ok'
       last_cmd = MFU_CMD_NOCMD;
       state = 0;
@@ -262,8 +282,19 @@ void MFU::loop(){
   }
 }
 
+/*
+ * Check if MFU was started
+ */
+bool MFU::rx_start() {
+  // check for start message
+  return MFU_RECV("started");
+}
+
 bool MFU::unload(){
-  if(!_enabled) return false;
+  if(!_enabled){
+    DEBUG_ECHOLNPGM("Aborted Tool Unloading: MFU NOT HOMED\n");
+    return false;
+  }
 
   if(thermalManager.tooColdToExtrude(active_extruder)){
     LCD_ALERTMESSAGE(MSG_HOTEND_TOO_COLD);
