@@ -28,7 +28,7 @@
 /**
  * Marlin release version identifier
  */
-#define SHORT_BUILD_VERSION "V 1.15 - MFU_Test 1"
+#define SHORT_BUILD_VERSION "V 1.15 - MFU_Test 5"
 
 /**
  * Verbose version identifier which should contain a reference to the location

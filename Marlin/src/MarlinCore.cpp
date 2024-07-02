@@ -237,6 +237,10 @@
   #include "feature/mmu/mmu2.h"
 #endif
 
+#if HAS_RPGFABI_MFU
+  #include "feature/mfu/mfu.h"
+#endif
+
 #if ENABLED(PASSWORD_FEATURE)
   #include "feature/password/password.h"
 #endif
@@ -782,6 +786,8 @@ void idle(const bool no_stepper_sleep/*=false*/) {
   #if HAS_FILAMENT_SENSOR
     if (TERN1(HAS_PRUSA_MMU2, !mmu2.enabled()))
       runout.run();
+    if (TERN1(HAS_RPGFABI_MFU, !mfu.enabled()))
+      runout.run();
   #endif
 
   // Run HAL idle tasks
@@ -846,6 +852,9 @@ void idle(const bool no_stepper_sleep/*=false*/) {
 
   // Update the Průša MMU2
   TERN_(HAS_PRUSA_MMU2, mmu2.mmu_loop());
+
+  // Update the RPGFabi MFU
+  TERN_(HAS_RPGFABI_MFU, mfu.loop());
 
   // Handle Joystick jogging
   TERN_(POLL_JOG, joystick.inject_jog_moves());
@@ -1583,6 +1592,10 @@ void setup() {
 
   #if HAS_PRUSA_MMU2
     SETUP_RUN(mmu2.init());
+  #endif
+
+  #if HAS_RPGFABI_MFU
+    SETUP_RUN(mfu.init());
   #endif
 
   #if ENABLED(IIC_BL24CXX_EEPROM)

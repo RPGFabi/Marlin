@@ -91,6 +91,13 @@ void MFU:: tool_change(const uint8_t index){
 */
 void MFU::tool_change(const char *special) {
   if(!_enabled) return;
+  
+
+  /*
+  T? : (Requires MMU2_MENUS) Wait for target temperature, then load the filament all the way to the nozzle. G-code to extrude more is not needed.
+  Tx : (Requires MMU2_MENUS) Load the filament up to the direct-drive extruder gears. No heating is required.
+  Tc : Wait for target temperature, then load the filament from the extruder gears up to the nozzle. G-code to extrude more is not needed.
+  */
 }
 
 /**
@@ -188,14 +195,17 @@ void MFU::loop(){
           // Filament not loaded => Home without Retract
           while (!thermalManager.wait_for_hotend(active_extruder,false)) safe_delay(100); // Wait for Headup
           MFU_SEND("H0");
+          DEBUG_ECHOLNPGM("H0 sent\n");
         }
         else{
           // Filament in Sensor => Home with Retract
           MFU_SEND("H0");
+          DEBUG_ECHOLNPGM("H0 sent\n");
         }
       #else
         // Home with retract
         MFU_SEND("H1");
+          DEBUG_ECHOLNPGM("H1 sent\n");
       #endif 
 
       state = -2; // set to Homing
@@ -203,6 +213,7 @@ void MFU::loop(){
     
     case -2:  // Is Homing, wait for "ok"
       if(MFU_RECV("ok")){
+        DEBUG_ECHOLNPGM("Received OK after Waiting for Homing\n");
         _enabled = true;
         state = 0;  // Homed
       }
@@ -223,11 +234,13 @@ void MFU::loop(){
         else if(cmd == MFU_CMD_UNLOADTOOL){
           // Unload current tool
           MFU_SEND("U");
+          DEBUG_ECHOLNPGM("U sent\n");
           state = 2;
         }
         else if(cmd == MFU_CMD_LOADTOOL){
           // Load the Filament 
           MFU_SEND("L");
+          DEBUG_ECHOLNPGM("L sent\n");
           state = 2;
         }
       }
@@ -237,6 +250,7 @@ void MFU::loop(){
       if(MFU_RECV("ok")){
         // Preloaded 
         // Enable Extruder for Primingdistance
+        DEBUG_ECHOLNPGM("Received OK after Waiting for toolchange\n");
         set_runout_valid(true);
       }
       break;
