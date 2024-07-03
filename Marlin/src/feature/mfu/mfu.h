@@ -19,6 +19,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  */
+
+
+/**
+ * Thanks to Dust for his help on getting me started with SerialCommunication and Marlin
+*/
 #pragma once
 #include "../../MarlinCore.h"
 

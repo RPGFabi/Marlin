@@ -49,11 +49,11 @@ void MFU::init(){
   Handle tool Change
 */
 void MFU:: tool_change(const uint8_t index){
-  if(_enabled){
+  if(!_enabled){
     DEBUG_ECHOLNPGM("Aborted Toolchange: MFU NOT HOMED\n");
     return;
   }
-  DEBUG_ECHOLNPGM("Toolchange to: ", uint16_t(index), "\n");
+  DEBUG_ECHOLNPGM("Toolchange to: ", static_cast<uint16_t>(index), "\n");
 
   if(index != extruder){
     DEBUG_ECHOLNPGM("not the same Extruder\n");
@@ -195,7 +195,6 @@ void MFU::manage_response(const bool move_axes, const bool turn_off_nozzle) {
 
 void MFU::loop(){
 
-  DEBUG_ECHOLNPGM("State => ", uint16_t(state));
   switch(state){
     //case 0: break;
 
@@ -207,6 +206,18 @@ void MFU::loop(){
       #if defined MFU_USE_FILAMENTSENSOR
         if(runout.filament_ran_out){
           // Filament not loaded => Home without Retract
+          while (!thermalManager.wait_for_hotend(active_extruder,false)) safe_delay(100); // Wait for Headup
+          MFU_SEND("H0");
+          DEBUG_ECHOLNPGM("H0 sent\n");
+        }
+        else{
+          // Filament in Sensor => Home with Retract
+          MFU_SEND("H0");
+          DEBUG_ECHOLNPGM("H0 sent\n");
+        }
+      /*
+        if(runout.filament_ran_out){
+          // Filament not loaded => Home without Retract
           MFU_SEND("H0");
           DEBUG_ECHOLNPGM("H0 sent\n");
         }
@@ -216,6 +227,7 @@ void MFU::loop(){
           MFU_SEND("H1");
           DEBUG_ECHOLNPGM("H1 sent\n");
         }
+      */
       #else
         // Home with retract
         MFU_SEND("H1");
@@ -223,14 +235,15 @@ void MFU::loop(){
       #endif
 
       state = -2; // set to Homing
+      DEBUG_ECHOLNPGM("New State => ", uint16_t(int16_t(state)));
       break;
 
     case -2:  // Is Homing, wait for "ok"
-    DEBUG_ECHOLNPGM("Waiting for an ok from the MFU");
       if(MFU_RECV("ok")){
         DEBUG_ECHOLNPGM("Received OK after Waiting for Homing\n");
         _enabled = true;
         state = 0;  // Homed
+        //DEBUG_ECHOLNPGM("New State => ", uint16_t(state));
       }
       break;
 
@@ -245,8 +258,7 @@ void MFU::loop(){
           sprintf(tmpstr, "T%d\n", toolIndex );
           tx_str(F(tmpstr));
           state = 1;
-
-          DEBUG_ECHOLNPGM("New Tool => ", uint16_t(toolIndex));
+          //DEBUG_ECHOLNPGM("New Tool => ", uint16_t(toolIndex));
         }
         else if(cmd == MFU_CMD_UNLOADTOOL){
           // Unload current tool
@@ -260,9 +272,7 @@ void MFU::loop(){
           DEBUG_ECHOLNPGM("L sent\n");
           state = 2;
         }
-      }
-      else{
-        DEBUG_ECHOLNPGM("Currently no Command to handle!");
+        //DEBUG_ECHOLNPGM("New State => ", uint16_t(state));
       }
       break;
 
@@ -270,7 +280,7 @@ void MFU::loop(){
       if(MFU_RECV("ok")){
         // Preloaded
         // Enable Extruder for Primingdistance
-        DEBUG_ECHOLNPGM("Received OK after Waiting for toolchange\n");
+        DEBUG_ECHOLNPGM("Received OK after Waiting for toolchange\n");  // STOPS HERE
         set_runout_valid(true);
       }
       break;
@@ -278,6 +288,7 @@ void MFU::loop(){
     case 2: // Wait for 'ok'
       last_cmd = MFU_CMD_NOCMD;
       state = 0;
+      //DEBUG_ECHOLNPGM("New State => ", uint16_t(state));
       break;
   }
 }
