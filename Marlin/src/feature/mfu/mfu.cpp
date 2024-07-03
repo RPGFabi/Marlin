@@ -56,34 +56,45 @@ void MFU:: tool_change(const uint8_t index){
   DEBUG_ECHOLNPGM("Toolchange to: ", static_cast<uint16_t>(index), "\n");
 
   if(index != extruder){
-    DEBUG_ECHOLNPGM("not the same Extruder\n");
     set_runout_valid(false);  // Disable Runout Sensor
 
     // Unload from Extruder
+    DEBUG_ECHOLNPGM("Start unloading Extruder\n");
     mfu_e_move(-MFU_UNLOAD_GEARS_MM, MMM_TO_MMS(MFU_UNLOAD_FEEDRATE));
-    DEBUG_ECHOLNPGM("Unloading Extruder\n");
+    DEBUG_ECHOLNPGM("Extruder unloaded\n");
 
     // Handle Change
     stepper.disable_extruder();
-    DEBUG_ECHOLNPGM("changing tool\n");
+    DEBUG_ECHOLNPGM("Start changing tool\n");
     setCommand(MFU_CMD_FIRSTTOOL + index);
     // Wait for response
-    manage_response(true, true);
+    //manage_response(true, true);
+    while(!MFU_RECV("ok")){
+      // Wait for response of MFU
+    }
+    DEBUG_ECHOLNPGM("Tool changed\n");
 
     // Load Into Extruder
-    DEBUG_ECHOLNPGM("Loading Extruder\n");
+    DEBUG_ECHOLNPGM("Load Extruder\n");
     extruder = index;
     active_extruder = 0;
     stepper.enable_extruder();
-
     mfu_e_move(MFU_UNLOAD_GEARS_MM, MMM_TO_MMS(MFU_UNLOAD_FEEDRATE));
+
     setCommand(MFU_CMD_LOADTOOL);
     // Wait for response
-    manage_response(true, true);
+    //manage_response(true, true);
+    while(!MFU_RECV("ok")){
+      // Wait for response of MFU
+    }
 
+    DEBUG_ECHOLNPGM("Loaded Extruder\n");
     set_runout_valid(true); // Enable Runout Sensor
-
-    DEBUG_ECHOLNPGM("changed Tool\n");
+  
+    DEBUG_ECHOLNPGM("Tool change finished.\n");
+  }
+  else{
+    DEBUG_ECHOLNPGM("Extruder is the same. Continue!\n");
   }
 }
 
@@ -190,9 +201,6 @@ void MFU::manage_response(const bool move_axes, const bool turn_off_nozzle) {
   }
 }
 
-
-
-
 void MFU::loop(){
 
   switch(state){
@@ -215,19 +223,6 @@ void MFU::loop(){
           MFU_SEND("H0");
           DEBUG_ECHOLNPGM("H0 sent\n");
         }
-      /*
-        if(runout.filament_ran_out){
-          // Filament not loaded => Home without Retract
-          MFU_SEND("H0");
-          DEBUG_ECHOLNPGM("H0 sent\n");
-        }
-        else{
-          // Filament in Sensor => Home with Retract
-          while (!thermalManager.wait_for_hotend(active_extruder,false)) safe_delay(100); // Wait for Headup
-          MFU_SEND("H1");
-          DEBUG_ECHOLNPGM("H1 sent\n");
-        }
-      */
       #else
         // Home with retract
         MFU_SEND("H1");
@@ -309,6 +304,7 @@ bool MFU::unload(){
 
   if(thermalManager.tooColdToExtrude(active_extruder)){
     LCD_ALERTMESSAGE(MSG_HOTEND_TOO_COLD);
+    DEBUG_ECHOLNPGM("Prevented Cold Extrusion. Extrusion Aborted\n");
     return false;
   }
 
