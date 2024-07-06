@@ -29,9 +29,8 @@ Toolchange
 
 Now the MFU unloads the Filament, switches the Tool and preloads the Filament to the Extrudergears
 - MFU => 'ok\n'
-- MFU <= 'E\n'
 
-MFU now fully loads the Filament
+MFU now fully loads the Filament and prints ok when done => Currently not Needed
 - MFU => 'ok\n'
 
 Load Filament

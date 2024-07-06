@@ -88,12 +88,6 @@ void MFU:: tool_change(const uint8_t index){
     stepper.enable_extruder();
     mfu_e_move(MFU_UNLOAD_GEARS_MM, MMM_TO_MMS(MFU_UNLOAD_FEEDRATE));
 
-    // Waiting till the MFU is done with its Loading Moove
-
-// ===> WORKS TILL HERE, After sending an "ok" from MFU, the Extruder Gears turn in the opposite (correct) direction", maybe set the state again to 1 (wait) so it can wait again for an response??
-    state = 1;
-    manage_response(true, true);
-
     // Extruder has now been loaded. Enable RunoutSensor to detect Runouts
     DEBUG_ECHOLNPGM("Loaded Extruder\n");
 
