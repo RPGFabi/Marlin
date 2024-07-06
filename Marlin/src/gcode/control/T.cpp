@@ -80,6 +80,7 @@ void GcodeSuite::T(const int8_t tool_index) {
   #if HAS_RPGFABI_MFU
     if(parser.string_arg){
       mfu.tool_change(parser.string_arg);
+      return;
     }
   #endif
 

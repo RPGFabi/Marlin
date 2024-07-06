@@ -37,7 +37,7 @@
 
 #define MFU_CMD_TIMEOUT 45000UL   // Delay between the wait for ok checks
 
-#define MFU_CMD_NOCMD 0x00    
+#define MFU_CMD_NOCMD 0x00
 #define MFU_CMD_UNLOADTOOL 0x01
 #define MFU_CMD_LOADTOOL 0x02
 #define MFU_CMD_FIRSTTOOL 0x20
@@ -49,17 +49,14 @@ inline void mfu_e_move(const float &dist, const feedRate_t fr_mm_s, const bool s
 
 class MFU{
   private:
-
     static bool ready;
-
 
     static uint8_t cmd, cmd_arg, last_cmd, extruder;
     static int8_t state;
     static volatile bool finda_runout_valid;
     static millis_t prev_request, prev_P0_request;
 
-
-    static bool _enabled, toolLoaded, isReady;
+    static bool _enabled, toolLoaded;
     static char rx_buffer[MFU_RX_BUFFERSIZE], tx_buffer[MFU_TX_BUFFERSIZE];
     static void tx_str(FSTR_P fstr); 
     static void tx_printf(FSTR_P format, int argument);
@@ -70,7 +67,7 @@ class MFU{
     static bool rx_start();
 
     static void manage_response(const bool move_axes, const bool turn_off_nozzle);
-  
+
   public:
     MFU();
 
@@ -82,7 +79,6 @@ class MFU{
     static void tool_change(const char *special);
     static bool unload();
     static void setCommand(const uint8_t newCommand);
-
     static void set_runout_valid(const bool valid);
 };
 

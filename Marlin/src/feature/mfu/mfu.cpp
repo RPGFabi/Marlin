@@ -18,7 +18,6 @@ uint8_t MFU::cmd, MFU::extruder;
 int8_t MFU::state = 0;
 uint8_t MFU::last_cmd;
 volatile bool MFU::finda_runout_valid;
-bool MFU::isReady;
 millis_t MFU::prev_request;
 char MFU::rx_buffer[MFU_RX_BUFFERSIZE], MFU::tx_buffer[MFU_TX_BUFFERSIZE];
 
@@ -26,6 +25,7 @@ char MFU::rx_buffer[MFU_RX_BUFFERSIZE], MFU::tx_buffer[MFU_TX_BUFFERSIZE];
 #define DEBUG_OUT ENABLED(MFU_DEBUG)
 #include "../../core/debug_out.h"
 
+// Called by Inline
 inline void mfu_e_move(const float &dist, const feedRate_t fr_mm_s, const bool sync){
   current_position.e += dist /planner.e_factor[active_extruder];
   line_to_current_position(fr_mm_s);
@@ -36,6 +36,7 @@ MFU::MFU(){
   rx_buffer[0] = '\0';
 };
 
+// Called by MAIN SETUP
 void MFU::init(){
   MFU_SERIAL.begin(MFU_BAUDRATE);
   extruder = MFU_NO_TOOL;
@@ -45,6 +46,7 @@ void MFU::init(){
   _enabled = false;
 }
 
+// Called by M701 & tool_change.cpp
 /*
   Handle tool Change
 */
@@ -53,6 +55,12 @@ void MFU:: tool_change(const uint8_t index){
     DEBUG_ECHOLNPGM("Aborted Toolchange: MFU NOT HOMED\n");
     return;
   }
+
+  if(thermalManager.tooColdToExtrude(active_extruder)){
+    DEBUG_ECHOLNPGM("Aborted Toolchange: Prevented ColdExtrusion\n");
+    return;
+  }
+
   DEBUG_ECHOLNPGM("Toolchange to: ", static_cast<uint16_t>(index), "\n");
 
   if(index != extruder){
@@ -67,30 +75,26 @@ void MFU:: tool_change(const uint8_t index){
     stepper.disable_extruder();
     DEBUG_ECHOLNPGM("Start changing tool\n");
     setCommand(MFU_CMD_FIRSTTOOL + index);
-    // Wait for response
-    //manage_response(true, true);
-    while(!MFU_RECV("ok")){
-      // Wait for response of MFU
-    }
-    DEBUG_ECHOLNPGM("Tool changed\n");
+
+    // Extruder is now unloaded, wait until the MFU has unloaded and changed the Filament. MFU loads the Filament up to the gears.
+    manage_response(true, true);
+
+    // Tool has now been changed, Load the Extruder (MFU directly continues loading so printer just needs to start turning the Extruder)
+    DEBUG_ECHOLNPGM("Tool changed. Start loading Extruder.\n");
 
     // Load Into Extruder
-    DEBUG_ECHOLNPGM("Load Extruder\n");
     extruder = index;
     active_extruder = 0;
     stepper.enable_extruder();
     mfu_e_move(MFU_UNLOAD_GEARS_MM, MMM_TO_MMS(MFU_UNLOAD_FEEDRATE));
 
-    setCommand(MFU_CMD_LOADTOOL);
-    // Wait for response
-    //manage_response(true, true);
-    while(!MFU_RECV("ok")){
-      // Wait for response of MFU
-    }
+    // Waiting till the MFU is done with its Loading Moove
+    manage_response(true, true);
 
+    // Extruder has now been loaded. Enable RunoutSensor to detect Runouts
     DEBUG_ECHOLNPGM("Loaded Extruder\n");
+
     set_runout_valid(true); // Enable Runout Sensor
-  
     DEBUG_ECHOLNPGM("Tool change finished.\n");
   }
   else{
@@ -98,6 +102,7 @@ void MFU:: tool_change(const uint8_t index){
   }
 }
 
+// Called by T.cpp
 /**
 * Handle special T?/Tx/Tc commands
 *
@@ -119,90 +124,11 @@ void MFU::tool_change(const char *special) {
   */
 }
 
-/**
- * Wait for response from MFU
- */
-bool MFU::get_response() {
-  while (cmd != MFU_CMD_NOCMD) idle();
-
-  while (!ready) {
-    idle();
-    if (state != 3) break;
-  }
-
-  const bool ret = ready;
-  ready = false;
-
-  return ret;
-}
-
-/**
- * Wait for response and deal with timeout if necessary
- */
-void MFU::manage_response(const bool move_axes, const bool turn_off_nozzle) {
-
-  constexpr xyz_pos_t park_point = NOZZLE_PARK_POINT;
-  bool response = false, mfu_print_saved = false;
-  xyz_pos_t resume_position;
-  celsius_t resume_hotend_temp = thermalManager.degTargetHotend(active_extruder);
-
-  KEEPALIVE_STATE(PAUSED_FOR_USER);
-
-  while (!response) {
-
-    response = get_response(); // wait for "ok" from mfu
-
-    if (!response) {          // No "ok" was received in reserved time frame, user will fix the issue on mfu unit
-      if (!mfu_print_saved) { // First occurrence. Save current position, park print head, disable nozzle heater.
-
-        planner.synchronize();
-
-        mfu_print_saved = true;
-
-        SERIAL_ECHOLNPGM("MFU not responding");
-        DEBUG_ECHOLNPGM("MFU not responding\n");
-
-        resume_hotend_temp = thermalManager.degTargetHotend(active_extruder);
-        resume_position = current_position;
-
-        if (move_axes && all_axes_homed()) nozzle.park(0, park_point);
-
-        if (turn_off_nozzle) thermalManager.setTargetHotend(0, active_extruder);
-
-        // Handle no MFU responding
-      }
-    }
-    else if (mfu_print_saved) {
-      SERIAL_ECHOLNPGM("\nMFU starts responding");
-      DEBUG_ECHOLNPGM("MFU starts responding\n");
-
-      if (turn_off_nozzle && resume_hotend_temp) {
-        thermalManager.setTargetHotend(resume_hotend_temp, active_extruder);
-        LCD_MESSAGE(MSG_HEATING);
-        ERR_BUZZ();
-        while (!thermalManager.wait_for_hotend(active_extruder, false)) safe_delay(1000);
-      }
-
-      //LCD_MESSAGE(MSG_MMU2_RESUMING);
-      //mmu2_attn_buzz(true);
-
-      #pragma GCC diagnostic push
-      #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-
-      if (move_axes && all_axes_homed()) {
-        // Move XY to starting position, then Z
-        do_blocking_move_to_xy(resume_position, feedRate_t(NOZZLE_PARK_XY_FEEDRATE));
-        // Move Z_AXIS to saved position
-        do_blocking_move_to_z(resume_position.z, feedRate_t(NOZZLE_PARK_Z_FEEDRATE));
-      }
-
-      #pragma GCC diagnostic pop
-    }
-  }
-}
-
+// Called from MAIN LOOP
 void MFU::loop(){
+  // Detection of Incoming Filamenterror messages
 
+  // Statemachine
   switch(state){
     //case 0: break;
 
@@ -277,25 +203,21 @@ void MFU::loop(){
         // Enable Extruder for Primingdistance
         DEBUG_ECHOLNPGM("Received OK after Waiting for toolchange\n");  // STOPS HERE
         set_runout_valid(true);
+        state = 0;
       }
       break;
 
     case 2: // Wait for 'ok'
-      last_cmd = MFU_CMD_NOCMD;
-      state = 0;
-      //DEBUG_ECHOLNPGM("New State => ", uint16_t(state));
+      if(MFU_RECV("ok")){
+        last_cmd = MFU_CMD_NOCMD;
+        state = 0;
+        //DEBUG_ECHOLNPGM("New State => ", uint16_t(state));
+      }
       break;
   }
 }
 
-/*
- * Check if MFU was started
- */
-bool MFU::rx_start() {
-  // check for start message
-  return MFU_RECV("started");
-}
-
+// Called by M702
 bool MFU::unload(){
   if(!_enabled){
     DEBUG_ECHOLNPGM("Aborted Tool Unloading: MFU NOT HOMED\n");
@@ -316,6 +238,113 @@ bool MFU::unload(){
   extruder = MFU_NO_TOOL;
   set_runout_valid(false);
   return true;
+}
+
+// Called Internal
+void MFU::setCommand(const uint8_t newCommand){
+  cmd = newCommand;
+  ready = false;
+}
+
+// Called by Internal
+void MFU::set_runout_valid(const bool valid){
+      finda_runout_valid = valid;
+      #if HAS_FILAMENT_SENSOR
+        if(valid) runout.reset();
+      #endif
+    }
+#endif
+
+#pragma region Communication
+
+/**
+ * Wait for response from MFU
+ */
+bool MFU::get_response() {
+  while (cmd != MFU_CMD_NOCMD) idle();
+
+  while (!ready) {
+    idle();
+    if (state != 1) break;
+  }
+
+  const bool ret = ready;
+  ready = false;
+
+  return ret;
+}
+
+/**
+ * Wait for response and deal with timeout if necessary
+ */
+void MFU::manage_response(const bool move_axes, const bool turn_off_nozzle) {
+
+  constexpr xyz_pos_t park_point = NOZZLE_PARK_POINT;
+  bool response = false, mfu_print_saved = false;
+  xyz_pos_t resume_position;
+  celsius_t resume_hotend_temp = thermalManager.degTargetHotend(active_extruder);
+
+  KEEPALIVE_STATE(IN_PROCESS);  // Keep alive GCODE-Host
+
+  while (!response) {
+
+    response = get_response(); // wait for "ok" from mfu
+
+    if (!response) {          // No "ok" was received in reserved time frame, user will fix the issue on mfu unit
+      if (!mfu_print_saved) { // First occurrence. Save current position, park print head, disable nozzle heater.
+
+        planner.synchronize();
+
+        mfu_print_saved = true;
+
+        SERIAL_ECHOLNPGM("MFU not responding");
+        DEBUG_ECHOLNPGM("MFU not responding\n");
+
+        resume_hotend_temp = thermalManager.degTargetHotend(active_extruder);
+        resume_position = current_position;
+
+        if (move_axes && all_axes_homed()) nozzle.park(0, park_point);
+
+        if (turn_off_nozzle) thermalManager.setTargetHotend(0, active_extruder);
+
+        // Handle no MFU responding
+      }
+    }
+    else if (mfu_print_saved) {
+      SERIAL_ECHOLNPGM("\nMFU starts responding");
+      DEBUG_ECHOLNPGM("MFU starts responding\n");
+
+      if (turn_off_nozzle && resume_hotend_temp) {
+        thermalManager.setTargetHotend(resume_hotend_temp, active_extruder);
+        LCD_MESSAGE(MSG_HEATING);
+        ERR_BUZZ();
+        while (!thermalManager.wait_for_hotend(active_extruder, false)) safe_delay(1000);
+      }
+
+      //LCD_MESSAGE(MSG_MMU2_RESUMING);
+      //mmu2_attn_buzz(true);
+
+      #pragma GCC diagnostic push
+      #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+
+      if (move_axes && all_axes_homed()) {
+        // Move XY to starting position, then Z
+        do_blocking_move_to_xy(resume_position, feedRate_t(NOZZLE_PARK_XY_FEEDRATE));
+        // Move Z_AXIS to saved position
+        do_blocking_move_to_z(resume_position.z, feedRate_t(NOZZLE_PARK_Z_FEEDRATE));
+      }
+
+      #pragma GCC diagnostic pop
+    }
+  }
+}
+
+/*
+ * Check if MFU was started
+ */
+bool MFU::rx_start() {
+  // check for start message
+  return MFU_RECV("started");
 }
 
 void MFU::clear_rx_buffer() {
@@ -354,11 +383,6 @@ bool MFU::rx_str(FSTR_P fstr){
   return true;
 }
 
-void MFU::setCommand(const uint8_t newCommand){
-  cmd = newCommand;
-  isReady = false;
-}
-
 /**
  * Transfer data to MFU, no argument
  */
@@ -388,11 +412,4 @@ void MFU::tx_printf(FSTR_P format, int argument1, int argument2) {
   for (uint8_t i = 0; i < len; ++i) MFU_SERIAL.write(tx_buffer[i]);
   prev_request = millis();
 }
-
-void MFU::set_runout_valid(const bool valid){
-      finda_runout_valid = valid;
-      #if HAS_FILAMENT_SENSOR
-        if(valid) runout.reset();
-      #endif
-    }
-#endif
+#pragma endregion
