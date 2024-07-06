@@ -89,6 +89,9 @@ void MFU:: tool_change(const uint8_t index){
     mfu_e_move(MFU_UNLOAD_GEARS_MM, MMM_TO_MMS(MFU_UNLOAD_FEEDRATE));
 
     // Waiting till the MFU is done with its Loading Moove
+
+// ===> WORKS TILL HERE, After sending an "ok" from MFU, the Extruder Gears turn in the opposite (correct) direction", maybe set the state again to 1 (wait) so it can wait again for an response??
+    state = 1;
     manage_response(true, true);
 
     // Extruder has now been loaded. Enable RunoutSensor to detect Runouts
@@ -174,12 +177,10 @@ void MFU::loop(){
           // Toolchange
           const int toolIndex = cmd - MFU_CMD_FIRSTTOOL;
 
-          //MFU_SEND(F("T%d"), toolIndex);
           char tmpstr[5];
           sprintf(tmpstr, "T%d\n", toolIndex );
           tx_str(F(tmpstr));
           state = 1;
-          //DEBUG_ECHOLNPGM("New Tool => ", uint16_t(toolIndex));
         }
         else if(cmd == MFU_CMD_UNLOADTOOL){
           // Unload current tool
@@ -194,16 +195,17 @@ void MFU::loop(){
           state = 2;
         }
         //DEBUG_ECHOLNPGM("New State => ", uint16_t(state));
+        last_cmd = cmd;
+        cmd = MFU_CMD_NOCMD;
       }
       break;
 
-    case 1: // Waiting for Toolchange
+    case 1: // Handle Response from MFU
       if(MFU_RECV("ok")){
-        // Preloaded
-        // Enable Extruder for Primingdistance
-        DEBUG_ECHOLNPGM("Received OK after Waiting for toolchange\n");  // STOPS HERE
-        set_runout_valid(true);
+        DEBUG_ECHOLNPGM("MFU answered ok");
+        ready = true;
         state = 0;
+        last_cmd = MFU_CMD_NOCMD;
       }
       break;
 
@@ -284,7 +286,7 @@ void MFU::manage_response(const bool move_axes, const bool turn_off_nozzle) {
   xyz_pos_t resume_position;
   celsius_t resume_hotend_temp = thermalManager.degTargetHotend(active_extruder);
 
-  KEEPALIVE_STATE(IN_PROCESS);  // Keep alive GCODE-Host
+  KEEPALIVE_STATE(PAUSED_FOR_USER);  // Keep alive GCODE-Host
 
   while (!response) {
 
