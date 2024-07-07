@@ -10,7 +10,7 @@ Home with Retraction
 =======================
 If there is no Filamentsensor in use or it is enabled and detects filament the Printer needs to heat up and then Home the MFU with Retraction
 After Heating the Hotend to the needed Temperature (Prevent Cold Extrusion) Printer sends
-- MFU <= 'H1\n'
+- MFU <= 'H1 E<ExtruderCount>\n'
 
 After Retracting and Homing the MFU answers
 - MFU => 'ok\n
@@ -18,7 +18,7 @@ After Retracting and Homing the MFU answers
 Home without Retraction
 =======================
 If there is an filamentsensor enabled which does not detect an filament the Printer can directly send an Home Command to the MFU. Since there is no Filament loaded no Retraction or Heating is needed
-- MFU <= 'H0\n'
+- MFU <= 'H0 E<ExtruderCount>\n'
 
 After Retracting and Homing the MFU answers
 - MFU => 'ok\n

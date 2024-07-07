@@ -1,0 +1,7 @@
+- Finish Homing Sequence
+- If Homing requires Heating (with EXTRUDE_MINTEMP) then add an error if EXTRUDE_MINTEMP is not enabled with MFU => Implement to SanityCheck
+- Update Toolchange to implement Speeds and distances
+- Implement error reception from the MFU (e.q. Filament run out)
+- Implement automatic Filament switching to an full spool
+- Implement Unloading and loading
+- ??

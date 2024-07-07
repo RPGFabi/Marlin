@@ -82,7 +82,7 @@ void MFU:: tool_change(const uint8_t index){
     // Tool has now been changed, Load the Extruder (MFU directly continues loading so printer just needs to start turning the Extruder)
     DEBUG_ECHOLNPGM("Tool changed. Start loading Extruder.\n");
 
-    // Load Into Extruder
+    // Load Into Extrudergears and up to the nozzle
     extruder = index;
     active_extruder = 0;
     stepper.enable_extruder();
@@ -121,47 +121,68 @@ void MFU::tool_change(const char *special) {
   */
 }
 
+void MFU::home(){
+      #if defined MFU_USE_FILAMENTSENSOR
+        if(runout.filament_ran_out && !ENABLED(FILAMENT_MOTION_SENSOR)){
+          // Filament not loaded => Home without Retract
+          char tmpstr[8];
+          sprintf(tmpstr, "H0 E%d\n", MFU_TOOLCOUNT );
+          tx_str(F(tmpstr));
+
+          DEBUG_ECHOLNPGM("H0 sent\n");
+          state = -3; // set to Homing
+        }
+        else{
+          thermalManager.setTargetHotend(EXTRUDE_MINTEMP, active_extruder); // Heatup Extruder
+          state = -2;
+          DEBUG_ECHOLNPGM("Preheating to start Homing\n");
+        }
+      #else
+        // Home with retract
+          thermalManager.setTargetHotend(EXTRUDE_MINTEMP, active_extruder); // Heatup Extruder
+          state = -2;
+          DEBUG_ECHOLNPGM("Preheating to start Homing\n");
+      #endif
+
+}
+
 // Called from MAIN LOOP
 void MFU::loop(){
   // Detection of Incoming Filamenterror messages
 
   // Statemachine
   switch(state){
-    //case 0: break;
-
     case -1: // NOT HOMED
       if (rx_start()) {
         DEBUG_ECHOLNPGM("MFU => 'start'");
       }
 
-      #if defined MFU_USE_FILAMENTSENSOR
-        if(runout.filament_ran_out){
-          // Filament not loaded => Home without Retract
-          while (!thermalManager.wait_for_hotend(active_extruder,false)) safe_delay(100); // Wait for Headup
-          MFU_SEND("H0");
-          DEBUG_ECHOLNPGM("H0 sent\n");
-        }
-        else{
-          // Filament in Sensor => Home with Retract
-          MFU_SEND("H0");
-          DEBUG_ECHOLNPGM("H0 sent\n");
-        }
-      #else
-        // Home with retract
-        MFU_SEND("H1");
-          DEBUG_ECHOLNPGM("H1 sent\n");
-      #endif
-
-      state = -2; // set to Homing
-      DEBUG_ECHOLNPGM("New State => ", uint16_t(int16_t(state)));
+      home();
       break;
 
-    case -2:  // Is Homing, wait for "ok"
+    case -2:  // Preheating for Homing with Retraction
+      if(thermalManager.tooColdToExtrude(active_extruder)){
+        safe_delay(100);
+        return;
+      }
+
+      // Hotend is heated, start Homing MFU
+      char tmpstr[8];
+      sprintf(tmpstr, "H1 E%d\n", MFU_TOOLCOUNT );
+      tx_str(F(tmpstr));
+
+      DEBUG_ECHOLNPGM("H1 sent\n");
+      state = -3;
+      break;
+
+    case -3:  // Is Homing, wait for "ok"
       if(MFU_RECV("ok")){
-        DEBUG_ECHOLNPGM("Received OK after Waiting for Homing\n");
+        DEBUG_ECHOLNPGM("Received OK after Waiting for Homing. Cooling down\n");
         _enabled = true;
         state = 0;  // Homed
-        //DEBUG_ECHOLNPGM("New State => ", uint16_t(state));
+        extruder = 0; // First Extruder since MFU mooves to this one after Homing
+
+        thermalManager.cooldown();
       }
       break;
 
