@@ -2932,6 +2932,15 @@ static_assert(NUM_SERVOS <= NUM_SERVO_PLUGS, "NUM_SERVOS (or some servo index) i
 #endif
 
 /**
+ * MFU requires EXTRUDE_MINTEMP to heat up for HomingMooves
+*/
+#if HAS_RPGFABI_MFU
+  #ifndef EXTRUDE_MINTEMP
+    #error "MFU needs the EXTRUDE_MINTEMP set, cause it needs the EXTRUDE_MINTEMP for Homing"
+  #endif
+#endif
+
+/**
  * Serial displays require a dedicated serial port
  */
 #ifdef LCD_SERIAL_PORT
