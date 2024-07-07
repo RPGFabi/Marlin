@@ -1,5 +1,8 @@
-- Update Toolchange to implement Speeds and distances
 - Implement error reception from the MFU (e.q. Filament run out)
 - Implement automatic Filament switching to an full spool
-- Implement Unloading and loading
+- Update Toolchange to implement Speeds and distances
 - ??
+
+How to handle an Error:
+A: If the same Filament is on another Slot Switch tools. Then Continue Print
+B: If the Filament is only in this slot or all other slots are empty, raise Error and go into Error State. If In Error State wait for "Reloaded" to exit error State. This writes all Spools as full and continues the Print

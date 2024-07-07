@@ -65,7 +65,7 @@ class MFU{
     static void clear_rx_buffer();
     static bool get_response();
     static bool rx_start();
-    
+
     static void home();
 
     static void manage_response(const bool move_axes, const bool turn_off_nozzle);
