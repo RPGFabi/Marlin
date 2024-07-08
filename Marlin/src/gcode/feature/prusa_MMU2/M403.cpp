@@ -28,7 +28,7 @@
 
 #if HAS_PRUSA_MMU2
   #include "../../../feature/mmu/mmu2.h"
-#else if HAS_RPGFABI_MFU
+#elif HAS_RPGFABI_MFU
   #include "../../../feature/mfu/mfu.h"
 #endif
 
@@ -41,13 +41,12 @@
  *  0   Default
  *  1   Flexible
  *  2   PVA
- * 
+ *
  * For MFU
  * -1                     No Filament
  * 0 to Extrudercount-1   Same Filament gets same number
  */
 void GcodeSuite::M403() {
-
   int8_t index = parser.intval('E', -1),
          type = parser.intval('F', -1);
 
@@ -56,7 +55,7 @@ void GcodeSuite::M403() {
       mmu2.set_filament_type(index, type);
     else
       SERIAL_ECHO_MSG("M403 - bad arguments.");
-  #else if HAS_RPGFABI_MFU
+  #elif HAS_RPGFABI_MFU
     if (!parser.seen_any()){
       mfu.print_filament_type();
       return;

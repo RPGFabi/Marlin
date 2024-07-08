@@ -35,72 +35,13 @@ MFU now fully loads the Filament and prints ok when done => Currently not Needed
 
 Load Filament
 =======================
-To Finally Load the Filament into the Extruder the Printer simply sends an 
-- MFU <= 'L\n'
+For loading an Filament the Printer and MFU handle an Toolchange
 
-to which the MFU answers 
-- MFU => 'ok\n'
 
 Unload CurrentFilament
 =======================
-To Unload the Filament 
+To Unload the Filament
 - MFU <= 'U\n'
 
-to which the MFU answers after it finished 
+to which the MFU answers after it finished
 - MFU => 'ok\n'
-
-
-Load Configuration
-=======================
-To Load the storred Settings send this to the MFU
-- MFU <= 'M01\n'
-
-The MFU answers with 
-- MFU => 'ok\n'
-
-Save Configuration
-=======================
-To Save the current Settings send this to the MFU
-- MFU <= 'M02\n'
-
-The MFU answers with 
-- MFU => 'ok\n'
-
-Restore Default Configuration
-=======================
-To Restore the default Configuration (from the Configuration.h File of the MFU) send this to the MFU
-- MFU <= 'M03\n'
-
-The MFU answers with 
-- MFU => 'ok\n'
-
-Change Configuration
-=======================
-To change single Parameters of the Configuration you can use following Command
-- MFU <= 'M04 *parameterType* *parameterValue*\n'
-
-The MFU answers with
-- MFU => 'ok\n'
-
-*parameterType* is equal to one of the following
-  A -> Gantry StepsMM
-  B -> Gantry Acc
-  C -> Gantry Offset
-  D -> Extruder StepsMM
-  E -> Extruder Acc
-  F -> Feed Homing
-  G -> Feed Gantry
-  H -> Feed Preload
-  I -> Feed Load
-  J -> Distance Preload
-  K -> Distance Load
-
-*parameterValue* is the Value the new parameter should have. 
-
-Log Config
-=======================
-Sending this command logs the Config to the Serial port
-- MFU <= 'M05\n'
-
-The MFU answers with the current Configuration
-- MFU => 'Current Config...\n'

@@ -1023,7 +1023,7 @@ private:
     static void M402();
   #endif
 
-  #if HAS_PRUSA_MMU2
+  #if ANY(HAS_PRUSA_MMU2, HAS_RPGFABI_MFU)
     static void M403();
   #endif
 
