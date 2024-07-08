@@ -121,6 +121,16 @@ void MFU::tool_change(const char *special) {
   */
 }
 
+void MFU::set_filament_type(int8_t extruder, int8_t type){
+  // Implement
+  DEBUG_ECHOLNPGM("set Filamenttype");
+}
+
+void MFU::print_filament_type(){
+  // Implement
+  DEBUG_ECHOLNPGM("print Filamenttypes");
+}
+
 void MFU::home(){
       #if defined MFU_USE_FILAMENTSENSOR
         if(runout.filament_ran_out && !ENABLED(FILAMENT_MOTION_SENSOR)){
