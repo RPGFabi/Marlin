@@ -636,8 +636,10 @@ void resume_print(const_float_t slow_load_length/*=0*/, const_float_t fast_load_
   if (targetTemp > thermalManager.degTargetHotend(active_extruder))
     thermalManager.setTargetHotend(targetTemp, active_extruder);
 
-  // Load the new filament
-  load_filament(slow_load_length, fast_load_length, purge_length, max_beep_count, true, nozzle_timed_out, PAUSE_MODE_SAME DXC_PASS);
+  // Load the new filament => TEST for MFU to prevent displaying the Continue message
+  bool show_lcd = TERN(HAS_RPGFABI_MFU,false, true);
+
+  load_filament(slow_load_length, fast_load_length, purge_length, max_beep_count, show_lcd, nozzle_timed_out, PAUSE_MODE_SAME DXC_PASS);
 
   if (targetTemp > 0) {
     thermalManager.setTargetHotend(targetTemp, active_extruder);

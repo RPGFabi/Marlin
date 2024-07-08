@@ -158,7 +158,6 @@ void MFU::handle_MFU_FilamentRunout(){
 
         tool_change(i, false);
         resume_print(0,0, ADVANCED_PAUSE_PURGE_LENGTH, 0, hotendTemp_BeforeRunout);
-        DEBUG_ECHOLNPGM("Now Disable the Continuemessage");
         return;
       }
     }
@@ -178,12 +177,12 @@ void MFU::set_filament_type(int8_t extruder, int8_t type){
 }
 
 void MFU::print_filament_type(){
-  uint8_t charCount = EXTRUDERS * (13 + 1);
+  uint8_t charCount = EXTRUDERS * (8 + 6 + 1); // 8chars fixxed + 2*3 chars per int + endchar
   char c_filamentTypes[charCount];
 
   for (size_t i = 0; i < EXTRUDERS; i++)
   {
-    sprintf(c_filamentTypes, "%sM403 E%d F%e",c_filamentTypes, i, filamentTypes[i], "\n");
+    sprintf(c_filamentTypes, "%sM403 E%d F%e",c_filamentTypes, (int8_t)i, filamentTypes[i], "\n");
   }
 
   SERIAL_ECHOLN_P(c_filamentTypes);
@@ -239,9 +238,8 @@ void MFU::loop(){
       tool_change(active_extruder, true);
       resume_print(0,0, ADVANCED_PAUSE_PURGE_LENGTH, 0, hotendTemp_BeforeRunout);
       pausedDueToFilamentShortage = false;
-      ui.reset_status();
+      ui.reset_status();  // Clear Error message
     }
-
   }
 
   if(pausedDueToFilamentShortage) return;
