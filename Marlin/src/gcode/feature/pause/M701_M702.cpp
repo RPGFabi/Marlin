@@ -108,7 +108,7 @@ void GcodeSuite::M701() {
   #if HAS_PRUSA_MMU2
     mmu2.load_to_nozzle(target_extruder);
   #elif HAS_RPGFABI_MFU
-    mfu.tool_change(target_extruder);
+    mfu.tool_change(target_extruder, false);
   #else
     constexpr float     purge_length = ADVANCED_PAUSE_PURGE_LENGTH,
                     slow_load_length = FILAMENT_CHANGE_SLOW_LOAD_LENGTH;

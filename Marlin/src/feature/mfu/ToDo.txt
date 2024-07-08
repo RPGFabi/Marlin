@@ -1,7 +1,7 @@
-- Implement error reception from the MFU (e.q. Filament run out)
-- Implement automatic Filament switching to an full spool
-- Update Toolchange to implement Speeds and distances
-- ??
+- Skip Continuescreen after Pause
+- Implement EEPROM-Loading for FilamentTypes in init()
+- Implement EEPROM-Saving for FilamentTypes in set_filament_type
+
 
 How to handle an Error:
 A: If the same Filament is on another Slot Switch tools. Then Continue Print

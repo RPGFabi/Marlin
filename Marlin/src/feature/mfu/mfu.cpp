@@ -2,6 +2,7 @@
 
 #if HAS_RPGFABI_MFU
 #include "../../feature/mfu/mfu.h"
+#include "../../feature/pause.h"
 #include "../../gcode/gcode.h"
 #include "../../libs/buzzer.h"
 #include "../../libs/nozzle.h"
@@ -13,13 +14,17 @@
 MFU mfu;
 #define MFU_BAUDRATE 115200
 
-bool MFU::_enabled, MFU::ready;
+bool MFU::_enabled, MFU::ready, MFU::pausedDueToFilamentShortage;
+celsius_t MFU::hotendTemp_BeforeRunout;
 uint8_t MFU::cmd, MFU::extruder;
 int8_t MFU::state = 0;
 uint8_t MFU::last_cmd;
 volatile bool MFU::finda_runout_valid;
 millis_t MFU::prev_request;
 char MFU::rx_buffer[MFU_RX_BUFFERSIZE], MFU::tx_buffer[MFU_TX_BUFFERSIZE];
+int8_t MFU::filamentTypes[EXTRUDERS];
+bool MFU::filamentAvailable[EXTRUDERS];
+
 
 #define MFU_DEBUG
 #define DEBUG_OUT ENABLED(MFU_DEBUG)
@@ -44,19 +49,32 @@ void MFU::init(){
   rx_buffer[0] = '\0';
   state = -1;
   _enabled = false;
+  pausedDueToFilamentShortage = false;
+
+  for (size_t i = 0; i < EXTRUDERS; i++)
+  {
+    filamentAvailable[i] = true;
+  }
+
+  // Load EEPROM
+  //TEMP
+  for (size_t i = 0; i < EXTRUDERS; i++)
+  {
+    filamentTypes[i] = -1;
+  }
 }
 
 // Called by M701 & tool_change.cpp
 /*
   Handle tool Change
 */
-void MFU:: tool_change(const uint8_t index){
+void MFU:: tool_change(const uint8_t index, const bool forceChange){
   if(!_enabled){
     DEBUG_ECHOLNPGM("Aborted Toolchange: MFU NOT HOMED\n");
     return;
   }
 
-  if(extruder == index){
+  if(extruder == index && ! forceChange){
     DEBUG_ECHOLNPGM("Same Extruder, no Change");
     return;
   }
@@ -121,14 +139,54 @@ void MFU::tool_change(const char *special) {
   */
 }
 
+void MFU::handle_MFU_FilamentRunout(){
+  hotendTemp_BeforeRunout = thermalManager.temp_hotend[0].target;
+
+  pause_print(0,NOZZLE_PARK_POINT, false, 0);
+
+  filamentAvailable[active_extruder] = false;
+
+  // find next extruder with same Filament
+  for (size_t i = 0; i < EXTRUDERS; i++)
+  {
+    if(filamentTypes[i] == filamentTypes[active_extruder]){
+      // Filament is the same
+      DEBUG_ECHOLNPGM("Found Extruder with same Filament");
+      if(filamentAvailable[i]){
+        // This Filamentslot is not empty
+        DEBUG_ECHOLNPGM("Filament is available, Changing tool");
+
+        tool_change(i, false);
+        resume_print(0,0, ADVANCED_PAUSE_PURGE_LENGTH, 0, hotendTemp_BeforeRunout);
+        DEBUG_ECHOLNPGM("Now Disable the Continuemessage");
+        return;
+      }
+    }
+  }
+
+  // No Filament Found => Inform User
+  DEBUG_ECHOLNPGM("MFU has no Filament of this Type. Refill and inform Printer about Refill");
+  pausedDueToFilamentShortage = true;
+  LCD_MESSAGE_F("Print paused due to empty Filament. Refill MFU and confirm change.");
+  SERIAL_ECHOLNPGM("Print paused due to empty Filament. Refill MFU and confirm change.");
+}
+
 void MFU::set_filament_type(int8_t extruder, int8_t type){
-  // Implement
-  DEBUG_ECHOLNPGM("set Filamenttype");
+  filamentTypes[extruder] = type;
+
+  // Save this to EEPROM
 }
 
 void MFU::print_filament_type(){
-  // Implement
-  DEBUG_ECHOLNPGM("print Filamenttypes");
+  uint8_t charCount = EXTRUDERS * (13 + 1);
+  char c_filamentTypes[charCount];
+
+  for (size_t i = 0; i < EXTRUDERS; i++)
+  {
+    sprintf(c_filamentTypes, "%sM403 E%d F%e",c_filamentTypes, i, filamentTypes[i], "\n");
+  }
+
+  SERIAL_ECHOLN_P(c_filamentTypes);
 }
 
 void MFU::home(){
@@ -161,10 +219,32 @@ void MFU::loop(){
   // Detection of Incoming Filamenterror messages
   if(MFU_RECV("E1")){
     DEBUG_ECHOLNPGM("MFU detected missing Filament");
-    // Pause Print
-
     rx_buffer[0] = '\0';
+    handle_MFU_FilamentRunout();
+
   }
+  else if (MFU_RECV("Reloaded")){
+    DEBUG_ECHOLNPGM("Filament got Reloaded");
+    rx_buffer[0] = '\0';
+
+    // Mark all Extruders as refilled
+    for (size_t i = 0; i < EXTRUDERS; i++)
+    {
+      filamentAvailable[i] = true;
+    }
+
+    // If Printer is paused, resume Print
+    if(pausedDueToFilamentShortage){
+      // Load the current tool
+      tool_change(active_extruder, true);
+      resume_print(0,0, ADVANCED_PAUSE_PURGE_LENGTH, 0, hotendTemp_BeforeRunout);
+      pausedDueToFilamentShortage = false;
+      ui.reset_status();
+    }
+
+  }
+
+  if(pausedDueToFilamentShortage) return;
 
   // Statemachine
   switch(state){
@@ -193,7 +273,7 @@ void MFU::loop(){
 
     case -3:  // Is Homing, wait for "ok"
       if(MFU_RECV("ok")){
-        DEBUG_ECHOLNPGM("Received OK after Waiting for Homing. Cooling down\n");
+        DEBUG_ECHOLNPGM("MFU homed. Cooling down\n");
         _enabled = true;
         state = 0;  // Homed
         extruder = 0; // First Extruder since MFU mooves to this one after Homing
@@ -320,7 +400,7 @@ void MFU::manage_response(const bool move_axes, const bool turn_off_nozzle) {
   xyz_pos_t resume_position;
   celsius_t resume_hotend_temp = thermalManager.degTargetHotend(active_extruder);
 
-  KEEPALIVE_STATE(PAUSED_FOR_USER);  // Keep alive GCODE-Host
+  KEEPALIVE_STATE(IN_PROCESS);  // Keep alive GCODE-Host => PAUSED_FOR_USER
 
   while (!response) {
 

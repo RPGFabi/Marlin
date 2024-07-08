@@ -1132,7 +1132,7 @@ void tool_change(const uint8_t new_tool, bool no_move/*=false*/) {
 
   #elif HAS_RPGFABI_MFU
     UNUSED(no_move);
-    mfu.tool_change(new_tool);
+    mfu.tool_change(new_tool, false);
 
   #elif EXTRUDERS == 0
 
