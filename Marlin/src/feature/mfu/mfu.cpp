@@ -60,11 +60,6 @@ void MFU::init(){
   }
 
   // Load EEPROM
-  //TEMP
-  for (size_t i = 0; i < EXTRUDERS; i++)
-  {
-    filamentTypes[i] = -1;
-  }
 }
 
 // Called by M701 & tool_change.cpp

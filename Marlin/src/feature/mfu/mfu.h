@@ -51,7 +51,6 @@ class MFU{
   private:
     static bool ready;
     static bool pausedDueToFilamentShortage;
-    static int8_t filamentTypes[];
     static bool filamentAvailable[];
 
   #ifdef MFU_USE_BUZZER_IF_FILAMENT_EMPTY
@@ -82,6 +81,7 @@ class MFU{
 
   public:
     MFU();
+    static int8_t filamentTypes[];
 
     static void init();
     static void loop();

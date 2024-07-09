@@ -130,6 +130,10 @@
   void M217_report(const bool eeprom);
 #endif
 
+#if HAS_RPGFABI_MFU
+  #include "../feature/mfu/mfu.h"
+#endif
+
 #if ENABLED(BLTOUCH)
   #include "../feature/bltouch.h"
 #endif
@@ -525,6 +529,13 @@ typedef struct SettingsDataStruct {
   //
   #if HAS_MULTI_EXTRUDER
     toolchange_settings_t toolchange_settings;          // M217 S P R
+  #endif
+
+  //
+  // MFU FilamentTypes
+  //
+  #if HAS_RPGFABI_MFU
+    int8_t mfu_filamentTypes[EXTRUDERS];
   #endif
 
   //
@@ -1587,6 +1598,15 @@ void MarlinSettings::postprocess() {
     #if HAS_MULTI_EXTRUDER
       _FIELD_TEST(toolchange_settings);
       EEPROM_WRITE(toolchange_settings);
+    #endif
+
+    //
+    // MFU FilamentTypes
+    //
+
+    #if HAS_RPGFABI_MFU
+      _FIELD_TEST(mfu.filamentTypes);
+      EEPROM_WRITE(mfu.filamentTypes);
     #endif
 
     //
@@ -2687,6 +2707,15 @@ void MarlinSettings::postprocess() {
       #endif
 
       //
+      // MFU Filamenttypes
+      //
+
+      #if HAS_RPGFABI_MFU
+        _FIELD_TEST(mfu.filamentTypes);
+        EEPROM_READ(mfu.filamentTypes);
+      #endif
+
+      //
       // Backlash Compensation
       //
       #if NUM_AXES
@@ -3274,6 +3303,19 @@ void MarlinSettings::reset() {
     #endif
 
   #endif
+
+  //
+  // MFU Filamenttypes
+  //
+
+  #if HAS_RPGFABI_MFU
+    // Reset to basic
+    for (size_t i = 0; i < EXTRUDERS; i++)
+    {
+      mfu.filamentTypes[i] = -1;  // This is basically "undefined"
+    }
+  #endif
+
 
   #if ENABLED(BACKLASH_GCODE)
     backlash.set_correction(BACKLASH_CORRECTION);
