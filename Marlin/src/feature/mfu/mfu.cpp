@@ -25,6 +25,9 @@ char MFU::rx_buffer[MFU_RX_BUFFERSIZE], MFU::tx_buffer[MFU_TX_BUFFERSIZE];
 int8_t MFU::filamentTypes[EXTRUDERS];
 bool MFU::filamentAvailable[EXTRUDERS];
 
+  #ifdef MFU_USE_BUZZER_IF_FILAMENT_EMPTY
+    uint32_t MFU::nextBuzz = 0;
+  #endif
 
 #define MFU_DEBUG
 #define DEBUG_OUT ENABLED(MFU_DEBUG)
@@ -140,6 +143,11 @@ void MFU::tool_change(const char *special) {
 }
 
 void MFU::handle_MFU_FilamentRunout(){
+  if(filamentTypes[active_extruder] == -1){
+    DEBUG_ECHOLNPGM("Ignore Filamentrunout since Extruder has no Filamenttype set");
+    return;
+  }
+
   hotendTemp_BeforeRunout = thermalManager.temp_hotend[0].target;
 
   pause_print(0,NOZZLE_PARK_POINT, false, 0);
@@ -166,6 +174,7 @@ void MFU::handle_MFU_FilamentRunout(){
   // No Filament Found => Inform User
   DEBUG_ECHOLNPGM("MFU has no Filament of this Type. Refill and inform Printer about Refill");
   pausedDueToFilamentShortage = true;
+  nextBuzz = millis();
   LCD_MESSAGE_F("Print paused due to empty Filament. Refill MFU and confirm change.");
   SERIAL_ECHOLNPGM("Print paused due to empty Filament. Refill MFU and confirm change.");
 }
@@ -177,7 +186,7 @@ void MFU::set_filament_type(int8_t extruder, int8_t type){
 }
 
 void MFU::print_filament_type(){
-  uint8_t charCount = EXTRUDERS * (8 + 6 + 1); // 8chars fixxed + 2*3 chars per int + endchar
+  uint8_t charCount = EXTRUDERS * (18); // 7chars fixed + 4 chars int + 2chars fixed + 4 chars int + 1 char fixxed
   char c_filamentTypes[charCount];
 
   for (size_t i = 0; i < EXTRUDERS; i++)
@@ -215,6 +224,19 @@ void MFU::home(){
 
 // Called from MAIN LOOP
 void MFU::loop(){
+  // Beeping if filament did run out truly
+  #ifdef MFU_USE_BUZZER_IF_FILAMENT_EMPTY
+    if(pausedDueToFilamentShortage){
+      uint32_t now = millis();
+      if(now >= nextBuzz)
+      {
+        BUZZ(MFU_BUZZER_ON_MS, 404);
+        nextBuzz = now + MFU_BUZZER_OFF_MS + MFU_BUZZER_ON_MS;
+      }
+
+    }
+  #endif
+
   // Detection of Incoming Filamenterror messages
   if(MFU_RECV("E1")){
     DEBUG_ECHOLNPGM("MFU detected missing Filament");
@@ -223,7 +245,7 @@ void MFU::loop(){
 
   }
   else if (MFU_RECV("Reloaded")){
-    DEBUG_ECHOLNPGM("Filament got Reloaded");
+    DEBUG_ECHOLNPGM("Filament got Reloaded. Set all Filaments to available");
     rx_buffer[0] = '\0';
 
     // Mark all Extruders as refilled
@@ -235,7 +257,15 @@ void MFU::loop(){
     // If Printer is paused, resume Print
     if(pausedDueToFilamentShortage){
       // Load the current tool
-      tool_change(active_extruder, true);
+      //tool_change(active_extruder, true);
+
+      mfu_e_move(MFU_UNLOAD_GEARS_MM, MMM_TO_MMS(MFU_UNLOAD_FEEDRATE));
+
+      // Extruder has now been loaded. Enable RunoutSensor to detect Runouts
+      DEBUG_ECHOLNPGM("Loaded Extruder\n");
+
+      set_runout_valid(true); // Enable Runout Sensor
+
       resume_print(0,0, ADVANCED_PAUSE_PURGE_LENGTH, 0, hotendTemp_BeforeRunout);
       pausedDueToFilamentShortage = false;
       ui.reset_status();  // Clear Error message

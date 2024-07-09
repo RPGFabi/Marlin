@@ -4358,7 +4358,7 @@
 /**
  * RPGFabis Multi Filament Unit (MFU)
  * Enable in Configuration.h
- * 
+ *
  * This device allows an single Extruder Stepper to be automatically served by multiple different Filaments.
 */
 #if HAS_RPGFABI_MFU
@@ -4369,6 +4369,10 @@
   // Distance the Extruder needs to retract to unload the Filament out of the Extrudergears
   #define MFU_UNLOAD_GEARS_MM 15  
   #define MFU_UNLOAD_FEEDRATE 120
+
+  #define MFU_USE_BUZZER_IF_FILAMENT_EMPTY
+  #define MFU_BUZZER_ON_MS 500
+  #define MFU_BUZZER_OFF_MS 500
 
   #if ENABLED(FILAMENT_RUNOUT_SENSOR)
     // Your Filament Sensor can be used to detect if Filament is currently loaded. Activate for better StartupBehaviour  

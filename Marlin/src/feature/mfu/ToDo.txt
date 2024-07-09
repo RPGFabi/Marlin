@@ -1,4 +1,3 @@
-- Skip Continuescreen after Pause
 - Implement EEPROM-Loading for FilamentTypes in init()
 - Implement EEPROM-Saving for FilamentTypes in set_filament_type
 - Fix Stringlength Calculation for M403

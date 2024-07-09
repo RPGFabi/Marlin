@@ -54,6 +54,10 @@ class MFU{
     static int8_t filamentTypes[];
     static bool filamentAvailable[];
 
+  #ifdef MFU_USE_BUZZER_IF_FILAMENT_EMPTY
+    static uint32_t nextBuzz;
+  #endif
+
     static uint8_t cmd, cmd_arg, last_cmd, extruder;
     static int8_t state;
     static volatile bool finda_runout_valid;
