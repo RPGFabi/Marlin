@@ -22,7 +22,7 @@ uint8_t MFU::last_cmd;
 volatile bool MFU::finda_runout_valid;
 millis_t MFU::prev_request;
 char MFU::rx_buffer[MFU_RX_BUFFERSIZE], MFU::tx_buffer[MFU_TX_BUFFERSIZE];
-MFU_FilamentTypes MFU::filamentTypes;
+MFU_Filament MFU::filamentTypes;
 bool MFU::filamentAvailable[EXTRUDERS];
 
   #ifdef MFU_USE_BUZZER_IF_FILAMENT_EMPTY
@@ -58,8 +58,6 @@ void MFU::init(){
   {
     filamentAvailable[i] = true;
   }
-
-  // Load EEPROM
 }
 
 // Called by M701 & tool_change.cpp
@@ -113,28 +111,6 @@ void MFU:: tool_change(const uint8_t index, const bool forceChange){
 
   set_runout_valid(true); // Enable Runout Sensor
   DEBUG_ECHOLNPGM("Tool change finished.\n");
-}
-
-// Called by T.cpp
-/**
-* Handle special T?/Tx/Tc commands
-*
-* T? Gcode to extrude shouldn't have to follow, load to extruder wheels is done automatically
-* Tx Same as T?, except nozzle doesn't have to be preheated. Tc must be placed after extruder nozzle is preheated to finish filament load.
-* Tc Load to nozzle after filament was prepared by Tx and extruder nozzle is already heated.
-*/
-void MFU::tool_change(const char *special) {
-  if(!_enabled){
-    DEBUG_ECHOLNPGM("Aborted Toolchange: MFU NOT HOMED\n");
-    return;
-  }
-
-    DEBUG_ECHOLNPGM("Special Toolchange: Not Implemented\n");
-  /*
-  T? : (Requires MMU2_MENUS) Wait for target temperature, then load the filament all the way to the nozzle. G-code to extrude more is not needed.
-  Tx : (Requires MMU2_MENUS) Load the filament up to the direct-drive extruder gears. No heating is required.
-  Tc : Wait for target temperature, then load the filament from the extruder gears up to the nozzle. G-code to extrude more is not needed.
-  */
 }
 
 void MFU::handle_MFU_FilamentRunout(){

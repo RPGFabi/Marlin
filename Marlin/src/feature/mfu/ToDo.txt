@@ -1,4 +1,5 @@
 - Implement EEPROM-Loading for FilamentTypes in init()
 - Implement EEPROM-Saving for FilamentTypes in set_filament_type
+
 - Fix Creation of the string from getFilamentType. Currently it wont return the type
 - Rename Foldername of M403
