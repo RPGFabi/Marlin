@@ -92,7 +92,6 @@ class MFU{
     static bool enabled() {return _enabled; }
 
     static void tool_change(const uint8_t index, const bool forceChange);
-    static void tool_change(const char *special);
 
     static bool unload();
 

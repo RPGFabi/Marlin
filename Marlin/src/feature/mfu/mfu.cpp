@@ -152,17 +152,16 @@ void MFU::handle_MFU_FilamentRunout(){
 
 void MFU::set_filament_type(int8_t extruder, int8_t type){
   filamentTypes.types[extruder] = type;
-
-  // Save this to EEPROM
 }
 
 void MFU::print_filament_type(){
-  uint8_t charCount = EXTRUDERS * (18); // 7chars fixed + 4 chars int + 2chars fixed + 4 chars int + 1 char fixxed
-  char c_filamentTypes[charCount];
+  uint8_t charCount = EXTRUDERS * 17; // 6chars fixed + 4 chars int + 2chars fixed + 4 chars int + 1 char fixxed
+  char c_filamentTypes[charCount] = {0};
 
   for (size_t i = 0; i < EXTRUDERS; i++)
   {
-    sprintf(c_filamentTypes, "%sM403 E%d F%e",c_filamentTypes, (int8_t)i, filamentTypes.types[i], "\n");
+    //sprintf(c_filamentTypes, "%sM403 E%d F%e",c_filamentTypes, (int8_t)i, filamentTypes.types[i], "\n");
+    sprintf(c_filamentTypes, "%sM403 E%d F%d",c_filamentTypes, i, filamentTypes.types[i], "\n");
   }
 
   SERIAL_ECHOLN_P(c_filamentTypes);
@@ -370,8 +369,6 @@ void MFU::set_runout_valid(const bool valid){
     }
 #endif
 
-#pragma region Communication
-
 /**
  * Wait for response from MFU
  */
@@ -527,4 +524,3 @@ void MFU::tx_printf(FSTR_P format, int argument1, int argument2) {
   for (uint8_t i = 0; i < len; ++i) MFU_SERIAL.write(tx_buffer[i]);
   prev_request = millis();
 }
-#pragma endregion
