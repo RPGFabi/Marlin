@@ -47,6 +47,10 @@
 
 inline void mfu_e_move(const float &dist, const feedRate_t fr_mm_s, const bool sync =true);
 
+struct MFU_Filament{
+  int8_t types[EXTRUDERS];
+} ;
+
 class MFU{
   private:
     static bool ready;
@@ -81,7 +85,7 @@ class MFU{
 
   public:
     MFU();
-    static int8_t filamentTypes[];
+    static MFU_Filament filamentTypes;
 
     static void init();
     static void loop();

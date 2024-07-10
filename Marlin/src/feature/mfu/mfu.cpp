@@ -22,7 +22,7 @@ uint8_t MFU::last_cmd;
 volatile bool MFU::finda_runout_valid;
 millis_t MFU::prev_request;
 char MFU::rx_buffer[MFU_RX_BUFFERSIZE], MFU::tx_buffer[MFU_TX_BUFFERSIZE];
-int8_t MFU::filamentTypes[EXTRUDERS];
+MFU_FilamentTypes MFU::filamentTypes;
 bool MFU::filamentAvailable[EXTRUDERS];
 
   #ifdef MFU_USE_BUZZER_IF_FILAMENT_EMPTY
@@ -138,7 +138,7 @@ void MFU::tool_change(const char *special) {
 }
 
 void MFU::handle_MFU_FilamentRunout(){
-  if(filamentTypes[active_extruder] == -1){
+  if(filamentTypes.types[active_extruder] == -1){
     DEBUG_ECHOLNPGM("Ignore Filamentrunout since Extruder has no Filamenttype set");
     return;
   }
@@ -152,7 +152,7 @@ void MFU::handle_MFU_FilamentRunout(){
   // find next extruder with same Filament
   for (size_t i = 0; i < EXTRUDERS; i++)
   {
-    if(filamentTypes[i] == filamentTypes[active_extruder]){
+    if(filamentTypes.types[i] == filamentTypes.types[active_extruder]){
       // Filament is the same
       DEBUG_ECHOLNPGM("Found Extruder with same Filament");
       if(filamentAvailable[i]){
@@ -175,7 +175,7 @@ void MFU::handle_MFU_FilamentRunout(){
 }
 
 void MFU::set_filament_type(int8_t extruder, int8_t type){
-  filamentTypes[extruder] = type;
+  filamentTypes.types[extruder] = type;
 
   // Save this to EEPROM
 }
@@ -186,7 +186,7 @@ void MFU::print_filament_type(){
 
   for (size_t i = 0; i < EXTRUDERS; i++)
   {
-    sprintf(c_filamentTypes, "%sM403 E%d F%e",c_filamentTypes, (int8_t)i, filamentTypes[i], "\n");
+    sprintf(c_filamentTypes, "%sM403 E%d F%e",c_filamentTypes, (int8_t)i, filamentTypes.types[i], "\n");
   }
 
   SERIAL_ECHOLN_P(c_filamentTypes);

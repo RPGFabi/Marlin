@@ -3312,7 +3312,7 @@ void MarlinSettings::reset() {
     // Reset to basic
     for (size_t i = 0; i < EXTRUDERS; i++)
     {
-      mfu.filamentTypes[i] = -1;  // This is basically "undefined"
+      mfu.filamentTypes.types[i] = -1;  // This is basically "undefined"
     }
   #endif
 
