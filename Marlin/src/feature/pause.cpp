@@ -81,7 +81,6 @@
 #include "../libs/nozzle.h"
 #include "pause.h"
 
-#define DEBUG_PAUSE_RESUME
 #define DEBUG_OUT ENABLED(DEBUG_PAUSE_RESUME)
 #include "../core/debug_out.h"
 

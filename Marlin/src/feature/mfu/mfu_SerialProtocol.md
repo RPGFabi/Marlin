@@ -45,3 +45,12 @@ To Unload the Filament
 
 to which the MFU answers after it finished
 - MFU => 'ok\n'
+
+MFU detects Filamentrunout
+=======================
+This is sent by the MFU and triggeres an Filamentchange
+- MFU => "E1\n"
+
+MFU send Information, that it was reloaded
+=======================
+- MFU => "Reloaded\n"

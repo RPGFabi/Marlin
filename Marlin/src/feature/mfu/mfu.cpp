@@ -60,7 +60,7 @@ void MFU::init(){
   }
 }
 
-// Called by M701 & tool_change.cpp
+// Called by M701 & tool_change.cpp && MFU-Filamentrunout
 /*
   Handle tool Change
 */
@@ -161,18 +161,14 @@ void MFU::set_filament_type(int8_t extruder, int8_t type){
 }
 
 void MFU::print_filament_type(){
-  uint8_t charCount = 17;//EXTRUDERS * 17; // 6chars fixed + 4 chars int + 2chars fixed + 4 chars int + 1 char fixxed
+  uint8_t charCount = 17; // 6chars fixed + 4 chars int + 2chars fixed + 4 chars int + 1 char fixxed
   char c_filamentTypes[charCount] = {0};
 
   for (size_t i = 0; i < EXTRUDERS; i++)
   {
-    //sprintf(c_filamentTypes, "%sM403 E%d F%e",c_filamentTypes, (int8_t)i, filamentTypes.types[i], "\n");
-    //sprintf(c_filamentTypes, "%sM403 E%d F%d",c_filamentTypes, i, filamentTypes.types[i], "\n");
     sprintf(c_filamentTypes, "M403 E%d F%d\n", i, filamentTypes.types[i]);
     SERIAL_ECHOLN_P(c_filamentTypes);
   }
-
-  //SERIAL_ECHOLN_P(c_filamentTypes);
 }
 
 void MFU::home(){
@@ -232,6 +228,7 @@ void MFU::loop(){
 
     // If Printer is paused, resume Print
     if(pausedDueToFilamentShortage){
+      LCD_MESSAGE_F("Filament got reloaded. Loading tool.");
       pausedDueToFilamentShortage = false;
       // Load the current tool
       tool_change(extruder, true);
