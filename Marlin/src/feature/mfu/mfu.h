@@ -100,6 +100,8 @@ class MFU{
 
     static void set_filament_type(int8_t extruder, int8_t type);
     static void print_filament_type();
+
+    static bool GetPauseBecauseFilamentShortage(){return pausedDueToFilamentShortage;};
 };
 
 extern MFU mfu;

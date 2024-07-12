@@ -63,7 +63,14 @@ void GcodeSuite::M403() {
 
     if (WITHIN(index, 0, EXTRUDERS - 1) && WITHIN(type, -1, EXTRUDERS - 1)){
       mfu.set_filament_type(index, type);
+      SERIAL_ECHOLN_P("Filamenttype set.");
       return;
+    }
+    else if (index >= EXTRUDERS){
+      SERIAL_ECHOLN_P("The given Extruder is higher than the Extrudercount.");
+    }
+    else if (type >= EXTRUDERS){
+      SERIAL_ECHOLN_P("Given Filamenttype is higher than max Extrudercount. You don't need that");
     }
   #endif
 }

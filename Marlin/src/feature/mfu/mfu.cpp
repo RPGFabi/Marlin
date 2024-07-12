@@ -70,7 +70,7 @@ void MFU:: tool_change(const uint8_t index, const bool forceChange){
     return;
   }
 
-  if(extruder == index && ! forceChange){
+  if(extruder == index && !forceChange){
     DEBUG_ECHOLNPGM("Same Extruder, no Change");
     return;
   }
@@ -114,27 +114,33 @@ void MFU:: tool_change(const uint8_t index, const bool forceChange){
 }
 
 void MFU::handle_MFU_FilamentRunout(){
-  if(filamentTypes.types[active_extruder] == -1){
+  if(filamentTypes.types[extruder] == -1){
     DEBUG_ECHOLNPGM("Ignore Filamentrunout since Extruder has no Filamenttype set");
+    return;
+  }
+
+  if(thermalManager.tooColdToExtrude(active_extruder)){
+    DEBUG_ECHOLNPGM("The hotend is to cold, ignore runout since not printing");
     return;
   }
 
   hotendTemp_BeforeRunout = thermalManager.temp_hotend[0].target;
 
-  pause_print(0,NOZZLE_PARK_POINT, false, 0);
+  pause_print(PAUSE_PARK_RETRACT_LENGTH,NOZZLE_PARK_POINT, false, 0);
 
-  filamentAvailable[active_extruder] = false;
+  filamentAvailable[extruder] = false;
 
   // find next extruder with same Filament
   for (size_t i = 0; i < EXTRUDERS; i++)
   {
-    if(filamentTypes.types[i] == filamentTypes.types[active_extruder]){
+    if(filamentTypes.types[i] == filamentTypes.types[extruder]){
       // Filament is the same
       DEBUG_ECHOLNPGM("Found Extruder with same Filament");
       if(filamentAvailable[i]){
         // This Filamentslot is not empty
         DEBUG_ECHOLNPGM("Filament is available, Changing tool");
 
+        stepper.enable_extruder(active_extruder); // Reenable since pause_print disables Stepper
         tool_change(i, false);
         resume_print(0,0, ADVANCED_PAUSE_PURGE_LENGTH, 0, hotendTemp_BeforeRunout);
         return;
@@ -155,16 +161,18 @@ void MFU::set_filament_type(int8_t extruder, int8_t type){
 }
 
 void MFU::print_filament_type(){
-  uint8_t charCount = EXTRUDERS * 17; // 6chars fixed + 4 chars int + 2chars fixed + 4 chars int + 1 char fixxed
+  uint8_t charCount = 17;//EXTRUDERS * 17; // 6chars fixed + 4 chars int + 2chars fixed + 4 chars int + 1 char fixxed
   char c_filamentTypes[charCount] = {0};
 
   for (size_t i = 0; i < EXTRUDERS; i++)
   {
     //sprintf(c_filamentTypes, "%sM403 E%d F%e",c_filamentTypes, (int8_t)i, filamentTypes.types[i], "\n");
-    sprintf(c_filamentTypes, "%sM403 E%d F%d",c_filamentTypes, i, filamentTypes.types[i], "\n");
+    //sprintf(c_filamentTypes, "%sM403 E%d F%d",c_filamentTypes, i, filamentTypes.types[i], "\n");
+    sprintf(c_filamentTypes, "M403 E%d F%d\n", i, filamentTypes.types[i]);
+    SERIAL_ECHOLN_P(c_filamentTypes);
   }
 
-  SERIAL_ECHOLN_P(c_filamentTypes);
+  //SERIAL_ECHOLN_P(c_filamentTypes);
 }
 
 void MFU::home(){
@@ -203,7 +211,6 @@ void MFU::loop(){
         BUZZ(MFU_BUZZER_ON_MS, 404);
         nextBuzz = now + MFU_BUZZER_OFF_MS + MFU_BUZZER_ON_MS;
       }
-
     }
   #endif
 
@@ -212,7 +219,6 @@ void MFU::loop(){
     DEBUG_ECHOLNPGM("MFU detected missing Filament");
     rx_buffer[0] = '\0';
     handle_MFU_FilamentRunout();
-
   }
   else if (MFU_RECV("Reloaded")){
     DEBUG_ECHOLNPGM("Filament got Reloaded. Set all Filaments to available");
@@ -226,10 +232,11 @@ void MFU::loop(){
 
     // If Printer is paused, resume Print
     if(pausedDueToFilamentShortage){
+      pausedDueToFilamentShortage = false;
       // Load the current tool
-      //tool_change(active_extruder, true);
+      tool_change(extruder, true);
 
-      mfu_e_move(MFU_UNLOAD_GEARS_MM, MMM_TO_MMS(MFU_UNLOAD_FEEDRATE));
+      //mfu_e_move(MFU_UNLOAD_GEARS_MM, MMM_TO_MMS(MFU_UNLOAD_FEEDRATE));
 
       // Extruder has now been loaded. Enable RunoutSensor to detect Runouts
       DEBUG_ECHOLNPGM("Loaded Extruder\n");
@@ -237,12 +244,9 @@ void MFU::loop(){
       set_runout_valid(true); // Enable Runout Sensor
 
       resume_print(0,0, ADVANCED_PAUSE_PURGE_LENGTH, 0, hotendTemp_BeforeRunout);
-      pausedDueToFilamentShortage = false;
       ui.reset_status();  // Clear Error message
     }
   }
-
-  if(pausedDueToFilamentShortage) return;
 
   // Statemachine
   switch(state){
@@ -334,10 +338,10 @@ bool MFU::unload(){
     return false;
   }
 
-  /*if(thermalManager.tooColdToExtrude(active_extruder)){
+  if(thermalManager.tooColdToExtrude(active_extruder)){
     DEBUG_ECHOLNPGM("Aborted Unload: Prevented ColdExtrusion\n");
     return false;
-  }*/
+  }
 
   set_runout_valid(false);  // Disable Runout Sensor
 
