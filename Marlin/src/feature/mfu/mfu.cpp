@@ -12,7 +12,6 @@
 #include "../../lcd/marlinui.h"
 
 MFU mfu;
-#define MFU_BAUDRATE 115200
 
 bool MFU::_enabled, MFU::ready, MFU::pausedDueToFilamentShortage;
 celsius_t MFU::hotendTemp_BeforeRunout;
@@ -169,6 +168,7 @@ void MFU::print_filament_type(){
     sprintf(c_filamentTypes, "M403 E%d F%d\n", i, filamentTypes.types[i]);
     SERIAL_ECHOLN_P(c_filamentTypes);
   }
+  tx_str(F("Test"));
 }
 
 void MFU::home(){
@@ -275,7 +275,9 @@ void MFU::loop(){
         DEBUG_ECHOLNPGM("MFU homed. Cooling down\n");
         _enabled = true;
         state = 0;  // Homed
-        extruder = 0; // First Extruder since MFU mooves to this one after Homing
+        extruder = -1;
+
+        tool_change(0, true);
 
         thermalManager.cooldown();
       }
@@ -513,6 +515,7 @@ void MFU::tx_printf(FSTR_P format, int argument = -1) {
   clear_rx_buffer();
   const uint8_t len = sprintf_P(tx_buffer, FTOP(format), argument);
   for (uint8_t i = 0; i < len; ++i) MFU_SERIAL.write(tx_buffer[i]);
+  MFU_SERIAL.print('\n');
   prev_request = millis();
 }
 

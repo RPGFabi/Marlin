@@ -4363,11 +4363,11 @@
 */
 #if HAS_RPGFABI_MFU
   #define MFU_SERIAL_PORT 3
-  #define MFU_BAUDRATE 115200
+  #define MFU_BAUDRATE 9600
   #define MFU_TOOLCOUNT 13
 
   // Distance the Extruder needs to retract to unload the Filament out of the Extrudergears
-  #define MFU_UNLOAD_GEARS_MM 15  
+  #define MFU_UNLOAD_GEARS_MM 15
   #define MFU_UNLOAD_FEEDRATE 120
 
   #define MFU_USE_BUZZER_IF_FILAMENT_EMPTY
@@ -4376,7 +4376,7 @@
 
   #if ENABLED(FILAMENT_RUNOUT_SENSOR)
     // Your Filament Sensor can be used to detect if Filament is currently loaded. Activate for better StartupBehaviour  
-    #define MFU_USE_FILAMENTSENSOR 
+    #define MFU_USE_FILAMENTSENSOR
   #endif
 #endif
 

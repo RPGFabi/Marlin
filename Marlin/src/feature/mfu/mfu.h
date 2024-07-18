@@ -31,7 +31,7 @@
   #include "../runout.h"
 #endif
 
-#define MFU_RX_BUFFERSIZE 16
+#define MFU_RX_BUFFERSIZE 32
 #define MFU_TX_BUFFERSIZE 16
 #define MFU_NO_TOOL -1
 
